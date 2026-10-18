@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Menu Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column. Red top bar, plain sections per category, each dish is a row with a photo, an Available switch and an Edit button. Edits open in a sheet. */
+:root {
+  --bg: #FFF1DC;
+  --surface: #FFF8EC;
+  --ink: #2A160E;
+  --muted: #7B5B4C;
+  --line: #EBCFA9;
+  --bar: #8E1409;
+  --on-bar: #FFF1DC;
+  --price: #B5200F;
+  --saffron: #F4A300;
+  --on-saffron: #2A160E;
+  --ok: #1F8A3B;
+  --bad: #B5200F;
+  --field: #FFFDF8;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1D110B;
+    --surface: #2A1912;
+    --ink: #FBEAD3;
+    --muted: #C9A892;
+    --line: #4A3226;
+    --bar: #5E1209;
+    --price: #FF7A5C;
+    --saffron: #FFB830;
+    --ok: #4CC46B;
+    --bad: #FF7A5C;
+    --field: #231610;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+}
+[hidden] { display: none !important; }
+h1, h2, h3, p { margin: 0; }
+img { max-width: 100%; }
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Buttons and fields */
+.btn {
+  font: inherit; font-weight: 700; font-size: 0.95rem;
+  min-height: 44px; padding: 0 16px;
+  border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--ink);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  text-decoration: none;
+}
+.btn.primary { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.btn.danger { color: var(--bad); border-color: var(--bad); background: transparent; }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 38px; padding: 0 12px; font-size: 0.88rem; }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .sw input:focus-visible + .trk {
+  outline: 3px solid var(--saffron); outline-offset: 2px;
+}
+label { display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 4px; }
+input, select, textarea {
+  font: inherit; color: var(--ink);
+  width: 100%; min-height: 44px; padding: 9px 12px;
+  background: var(--field); border: 1.5px solid var(--line); border-radius: 10px;
+}
+textarea { resize: vertical; min-height: 70px; }
+.err { color: var(--bad); font-weight: 600; font-size: 0.9rem; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+
+/* Boot and login */
+.center { min-height: 60vh; display: grid; place-items: center; color: var(--muted); }
+.login { padding-block: 48px; }
+.card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.login h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; letter-spacing: -0.02em; }
+.link { background: none; border: 0; padding: 6px 0; font: inherit; font-weight: 600; color: var(--price); text-decoration: underline; cursor: pointer; align-self: flex-start; }
+
+/* App */
+.top { background: var(--bar); color: var(--on-bar); position: sticky; top: 0; z-index: 5; }
+.top .wrap { display: flex; align-items: center; gap: 10px; padding-block: 12px; flex-wrap: wrap; }
+.top .ttl { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; flex: 1; min-width: 0; }
+.top .who { font-size: 0.78rem; opacity: 0.85; flex-basis: 100%; overflow-wrap: anywhere; }
+.top .btn { background: transparent; color: var(--on-bar); border-color: rgba(255, 241, 220, 0.5); min-height: 38px; font-size: 0.88rem; }
+main { padding-block: 18px 40px; display: flex; flex-direction: column; gap: 22px; }
+.sub { font-weight: 700; font-size: 1rem; }
+.sec-title { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; }
+.two { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.cat { display: flex; flex-direction: column; gap: 8px; }
+.cat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cat-head h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.35rem; text-wrap: balance; min-width: 0; }
+.rows { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.thumb { flex: none; width: 56px; height: 56px; border-radius: 12px; overflow: hidden; display: grid; place-items: center; background: linear-gradient(140deg, #E8892B, #A8400D); color: #fff; font-weight: 800; font-size: 1.3rem; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rinfo b { overflow-wrap: anywhere; }
+.rinfo span { color: var(--price); font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.row.off .rinfo, .row.off .thumb { opacity: 0.5; }
+.sw { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; font-size: 0.7rem; font-weight: 600; color: var(--muted); margin: 0; }
+.sw input { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; padding: 0; }
+.trk { width: 42px; height: 24px; border-radius: 999px; background: var(--line); position: relative; transition: background 0.15s; }
+.trk::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.sw input:checked + .trk { background: var(--ok); }
+.sw input:checked + .trk::after { transform: translateX(18px); }
+.add { align-self: flex-start; margin-top: 4px; }
+
+/* Dialog sheets */
+dialog {
+  width: min(92vw, 520px); max-height: 90vh; padding: 0;
+  border: 0; border-radius: 18px;
+  background: var(--bg); color: var(--ink);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+dialog::backdrop { background: rgba(20, 8, 4, 0.55); }
+dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 90vh; overflow-y: auto; }
+dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; }
+fieldset { border: 1.5px solid var(--line); border-radius: 12px; padding: 12px; margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+legend { font-weight: 700; font-size: 0.88rem; padding: 0 6px; }
+.prow { display: grid; grid-template-columns: 1fr 110px 44px; gap: 8px; }
+.prow .x { min-height: 44px; border-radius: 10px; border: 1.5px solid var(--line); background: transparent; color: var(--bad); font-size: 1.3rem; cursor: pointer; }
+.photoRow { display: flex; gap: 12px; align-items: center; }
+.photoRow .thumb { width: 84px; height: 84px; font-size: 0.75rem; text-align: center; padding: 4px; background: var(--line); color: var(--muted); font-weight: 600; }
+.photoRow .stack { gap: 8px; flex: 1; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; }
+
+#toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  background: var(--ink); color: var(--bg); font-weight: 600; font-size: 0.92rem;
+  padding: 11px 18px; border-radius: 999px; max-width: 90vw; text-align: center;
+  transition: opacity 0.2s, transform 0.2s; z-index: 50;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.bad { background: var(--bad); color: #fff; }
+footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
+@media (min-width: 560px) { .two { grid-template-columns: 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) { .trk, .trk::after, #toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="boot" class="center">Loading...</div>
+
+<div id="login" class="wrap login" hidden>
+  <form id="fLogin" class="card" novalidate>
+    <h1>Menu Panel</h1>
+    <p class="muted">Log in to edit your menu. Changes show on your QR menu within seconds.</p>
+    <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" required></div>
+    <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <p id="loginErr" class="err" role="alert" hidden></p>
+    <p id="loginOk" class="muted" role="status" hidden></p>
+    <button id="loginBtn" class="btn primary" type="submit">Log in</button>
+    <button id="forgot" class="link" type="button">Forgot password?</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="wrap">
+      <span class="ttl">Menu Panel</span>
+      <a class="btn small" href="index.html" target="_blank" rel="noopener">View menu</a>
+      <button id="signOut" class="btn small" type="button">Log out</button>
+      <span class="who" id="who"></span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="setup" class="card" hidden>
+      <h2 class="sec-title">Set up this menu</h2>
+      <p class="muted">No menu is saved yet. Start with the sample menu to see how it works, or start empty and add your own dishes.</p>
+      <div class="actions">
+        <button id="seedSample" class="btn primary" type="button">Start with sample menu</button>
+        <button id="seedEmpty" class="btn" type="button">Start empty</button>
+      </div>
+    </section>
+
+    <div id="panel" class="stack" hidden>
+      <section class="card">
+        <h2 class="sec-title">Restaurant</h2>
+        <div class="two">
+          <div><label for="rName">Name</label><input id="rName" maxlength="60"></div>
+          <div><label for="rTag">Tagline</label><input id="rTag" maxlength="120"></div>
+        </div>
+        <h3 class="sub">Links shown on your menu</h3>
+        <div class="stack" style="gap:12px">
+          <div><label for="rIg">Instagram profile</label><input id="rIg" maxlength="120" placeholder="@yourrestaurant or profile link" autocapitalize="none"></div>
+          <div><label for="rWa">WhatsApp number</label><input id="rWa" inputmode="tel" maxlength="20" placeholder="10-digit number, like 9876543210"></div>
+          <div><label for="rRev">Google review link</label><input id="rRev" type="url" inputmode="url" maxlength="300" placeholder="https://"></div>
+        </div>
+        <p class="muted">Leave a box empty to hide that button.</p>
+        <button id="saveR" class="btn primary" type="button" style="align-self:flex-start">Save details</button>
+      </section>
+
+      <div id="cats" class="stack"></div>
+      <button id="addCat" class="btn" type="button" style="align-self:flex-start">+ Add category</button>
+    </div>
+  </main>
+
+  <footer class="wrap">Powered by Brand Boost Studio. Need help? brandbooststudio110@gmail.com</footer>
+</div>
+
+<dialog id="dlgItem">
+  <form id="fItem" novalidate>
+    <h2 id="itemTitle">Edit dish</h2>
+    <div><label for="iName">Dish name</label><input id="iName" maxlength="60"></div>
+    <div><label for="iDesc">Description</label><textarea id="iDesc" rows="2" maxlength="140"></textarea></div>
+    <div class="two">
+      <div><label for="iCat">Category</label><select id="iCat"></select></div>
+      <div><label for="iTag">Label</label>
+        <select id="iTag"><option value="">None</option><option>Bestseller</option><option>Spicy</option><option>Sharing</option><option>New</option></select></div>
+    </div>
+    <fieldset>
+      <legend>Prices in rupees</legend>
+      <div id="priceRows" class="stack" style="gap:8px"></div>
+      <button id="addPrice" class="btn small ghost" type="button" style="align-self:flex-start">+ Add another size</button>
+    </fieldset>
+    <fieldset>
+      <legend>Photo</legend>
+      <div class="photoRow">
+        <div id="photoPrev" class="thumb">No photo</div>
+        <div class="stack">
+          <label class="btn small" for="iFile" style="margin:0">Upload photo</label>
+          <input id="iFile" type="file" accept="image/*" hidden>
+          <button id="rmPhoto" class="btn small ghost" type="button">Remove photo</button>
+        </div>
+      </div>
+      <div><label for="iUrl">Or paste a photo link</label><input id="iUrl" type="url" inputmode="url" placeholder="https://"></div>
+    </fieldset>
+    <p id="itemErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="delItem" class="btn danger" type="button">Delete</button>
+      <span class="grow"></span>
+      <button id="cancelItem" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgCat">
+  <form id="fCat" novalidate>
+    <h2 id="catTitle">Category</h2>
+    <div><label for="cName">Category name</label><input id="cName" maxlength="40"></div>
+    <div><label for="cBlurb">Short line under the name (optional)</label><input id="cBlurb" maxlength="100"></div>
+    <p id="catErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="delCat" class="btn danger" type="button">Delete</button>
+      <span class="grow"></span>
+      <button id="cancelCat" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { RID, start } from "./firebase-config.js";
+import { SAMPLE } from "./sample-menu.js";
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function rupees(n) { return "₹" + Number(n).toLocaleString("en-IN"); }
+function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "cat"; }
+
+var F = null, user = null, restaurant = null, items = [];
+var ready = { r: false, i: false };
+var unsubs = [];
+var editing = null, prices = [], photo = "", catEditing = null, delTimer = null;
+
+// ---------- helpers
+function toast(msg, bad) {
+  var t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(function () { t.className = ""; }, 3200);
+}
+function friendly(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("permission-denied") >= 0) return "This login is not allowed to edit the menu.";
+  if (c.indexOf("unavailable") >= 0 || c.indexOf("network") >= 0) return "No internet. Check your connection and try again.";
+  return (e && e.message) || "Something went wrong. Try again.";
+}
+async function run(p, ok) {
+  try {
+    await Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej({ code: "unavailable" }); }, 15000); })]);
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { toast(friendly(e), true); return false; }
+}
+function authMsg(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0 || c.indexOf("invalid-email") >= 0) return "Wrong email or password.";
+  if (c.indexOf("user-disabled") >= 0) return "This account is switched off. Contact Brand Boost Studio.";
+  if (c.indexOf("too-many-requests") >= 0) return "Too many tries. Wait a few minutes and try again.";
+  if (c.indexOf("network") >= 0) return "No internet. Check your connection and try again.";
+  return "Could not log in. Try again.";
+}
+function dRef(id) { return F.fs.doc(F.db, "restaurants", RID, "items", id); }
+function rRef() { return F.fs.doc(F.db, "restaurants", RID); }
+
+// ---------- start and login
+(async function init() {
+  try { F = await start({ auth: true }); }
+  catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
+  F.authMod.onAuthStateChanged(F.auth, onUser);
+})();
+
+function onUser(u) {
+  user = u;
+  $("boot").hidden = true;
+  $("login").hidden = !!u;
+  $("app").hidden = !u;
+  unsubs.forEach(function (f) { f(); });
+  unsubs = [];
+  ready.r = ready.i = false;
+  restaurant = null; items = [];
+  if (u) { $("who").textContent = u.email; subscribe(); }
+}
+$("fLogin").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var err = $("loginErr"); err.hidden = true; $("loginOk").hidden = true;
+  var btn = $("loginBtn"); btn.disabled = true;
+  try { await F.authMod.signInWithEmailAndPassword(F.auth, $("lEmail").value.trim(), $("lPass").value); }
+  catch (x) { err.textContent = authMsg(x); err.hidden = false; }
+  btn.disabled = false;
+});
+$("forgot").addEventListener("click", async function () {
+  var err = $("loginErr"), ok = $("loginOk"); err.hidden = true; ok.hidden = true;
+  var email = $("lEmail").value.trim();
+  if (!email) { err.textContent = "Enter your email above first."; err.hidden = false; return; }
+  try {
+    await F.authMod.sendPasswordResetEmail(F.auth, email);
+    ok.textContent = "If this email has an account, a reset link is on its way. Check spam too."; ok.hidden = false;
+  } catch (x) { err.textContent = authMsg(x); err.hidden = false; }
+});
+$("signOut").addEventListener("click", function () { F.authMod.signOut(F.auth); });
+
+function subscribe() {
+  var fs = F.fs;
+  unsubs.push(fs.onSnapshot(rRef(), function (s) {
+    restaurant = s.exists() ? s.data() : null; ready.r = true; draw();
+  }, function (e) { toast(friendly(e), true); }));
+  unsubs.push(fs.onSnapshot(fs.collection(F.db, "restaurants", RID, "items"), function (s) {
+    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw();
+  }, function (e) { toast(friendly(e), true); }));
+}
+
+// ---------- drawing
+function priceText(it) {
+  return (it.p || []).map(function (x) { return (x.l ? x.l + " " : "") + rupees(x.v); }).join("  /  ");
+}
+function draw() {
+  if (!user || !ready.r || !ready.i) return;
+  var has = !!restaurant;
+  $("setup").hidden = has;
+  $("panel").hidden = !has;
+  if (!has) return;
+  if (document.activeElement !== $("rName")) $("rName").value = restaurant.name || "";
+  if (document.activeElement !== $("rTag")) $("rTag").value = restaurant.tagline || "";
+  var lk = restaurant.links || {};
+  if (document.activeElement !== $("rIg")) $("rIg").value = lk.instagram || "";
+  if (document.activeElement !== $("rWa")) $("rWa").value = lk.whatsapp || "";
+  if (document.activeElement !== $("rRev")) $("rRev").value = lk.review || "";
+  var cats = restaurant.categories || [];
+  var html = cats.map(function (c) {
+    var list = items.filter(function (it) { return it.cat === c.id; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    var rows = list.map(function (it) {
+      var thumb = it.img && /^(https:\/\/|data:image\/)/i.test(it.img)
+        ? '<img src="' + esc(it.img) + '" alt="">'
+        : esc((it.n || "?").charAt(0).toUpperCase());
+      return '<div class="row' + (it.sold ? " off" : "") + '">' +
+        '<div class="thumb">' + thumb + "</div>" +
+        '<div class="rinfo"><b>' + esc(it.n) + "</b><span>" + esc(priceText(it)) + "</span></div>" +
+        '<label class="sw"><input type="checkbox" data-act="avail" data-id="' + esc(it.id) + '"' + (it.sold ? "" : " checked") + '><span class="trk"></span>Available</label>' +
+        '<button class="btn small" type="button" data-act="edit" data-id="' + esc(it.id) + '">Edit</button>' +
+      "</div>";
+    }).join("");
+    return '<section class="cat"><div class="cat-head"><h2>' + esc(c.name) + '</h2>' +
+      '<button class="btn small ghost" type="button" data-act="editcat" data-id="' + esc(c.id) + '">Rename</button></div>' +
+      '<div class="rows">' + (rows || '<p class="muted" style="padding-block:10px">No dishes yet.</p>') + "</div>" +
+      '<button class="btn add" type="button" data-act="add" data-cat="' + esc(c.id) + '">+ Add dish</button></section>';
+  }).join("");
+  $("cats").innerHTML = html;
+}
+
+$("cats").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-act]");
+  if (!b) return;
+  var a = b.dataset.act;
+  if (a === "edit") openItem(b.dataset.id);
+  else if (a === "add") openItem(null, b.dataset.cat);
+  else if (a === "editcat") openCat(b.dataset.id);
+});
+$("cats").addEventListener("change", function (e) {
+  var c = e.target.closest('[data-act="avail"]');
+  if (!c) return;
+  run(F.fs.updateDoc(dRef(c.dataset.id), { sold: !c.checked }), c.checked ? "Marked available" : "Marked sold out");
+});
+
+// ---------- first-time setup
+async function seed(withSample) {
+  var fs = F.fs, db = F.db;
+  var base = withSample ? SAMPLE : { name: "My Restaurant", tagline: "", categories: [{ id: "starters", name: "Starters", blurb: "" }], items: [] };
+  var b = fs.writeBatch(db);
+  b.set(rRef(), { name: base.name, tagline: base.tagline, categories: base.categories });
+  base.items.forEach(function (it, i) {
+    var ref = fs.doc(fs.collection(db, "restaurants", RID, "items"));
+    b.set(ref, { cat: it.cat, n: it.n, d: it.d, p: it.p, t: it.t || "", img: "", sold: false, order: i });
+  });
+  await run(b.commit(), "Menu created");
+}
+$("seedSample").addEventListener("click", function () { seed(true); });
+$("seedEmpty").addEventListener("click", function () { seed(false); });
+
+$("saveR").addEventListener("click", function () {
+  var name = $("rName").value.trim();
+  if (!name) { toast("Enter the restaurant name.", true); return; }
+  var ig = $("rIg").value.trim(), waRaw = $("rWa").value.trim(), wa = waRaw.replace(/\D/g, ""), rev = $("rRev").value.trim();
+  if (waRaw && (wa.length < 10 || wa.length > 15)) { toast("Enter a valid WhatsApp number.", true); return; }
+  if (rev && !/^https:\/\//i.test(rev)) { toast("The Google review link must start with https://", true); return; }
+  run(F.fs.updateDoc(rRef(), { name: name, tagline: $("rTag").value.trim(), links: { instagram: ig, whatsapp: wa, review: rev } }), "Saved");
+});
+
+// ---------- dish sheet
+function renderPrices() {
+  $("priceRows").innerHTML = prices.map(function (p, i) {
+    return '<div class="prow">' +
+      '<input class="pl" data-i="' + i + '" data-k="l" placeholder="Size (optional)" maxlength="20" value="' + esc(p.l) + '" aria-label="Size name">' +
+      '<input class="pv" data-i="' + i + '" data-k="v" inputmode="decimal" placeholder="Price" value="' + esc(p.v) + '" aria-label="Price in rupees">' +
+      '<button class="x" type="button" data-i="' + i + '" aria-label="Remove this price">×</button></div>';
+  }).join("");
+}
+$("priceRows").addEventListener("input", function (e) {
+  var t = e.target;
+  if (t.dataset.i != null) prices[+t.dataset.i][t.dataset.k] = t.value;
+});
+$("priceRows").addEventListener("click", function (e) {
+  var x = e.target.closest(".x");
+  if (!x) return;
+  prices.splice(+x.dataset.i, 1);
+  if (!prices.length) prices.push({ l: "", v: "" });
+  renderPrices();
+});
+$("addPrice").addEventListener("click", function () { prices.push({ l: "", v: "" }); renderPrices(); });
+
+function currentImg() { return $("iUrl").value.trim() || photo; }
+function showPrev() {
+  var u = currentImg();
+  $("photoPrev").innerHTML = u ? '<img alt="" src="' + esc(u) + '">' : "No photo";
+}
+$("iUrl").addEventListener("input", showPrev);
+$("rmPhoto").addEventListener("click", function () { photo = ""; $("iUrl").value = ""; showPrev(); });
+$("iFile").addEventListener("change", async function () {
+  var f = this.files && this.files[0];
+  this.value = "";
+  if (!f) return;
+  try { photo = await compress(f); $("iUrl").value = ""; showPrev(); }
+  catch (e) { formErr("itemErr", "Could not read that photo. Try a different one."); }
+});
+
+// Crops to a square and shrinks, so many photos fit comfortably in the free database.
+async function compress(file) {
+  var bmp;
+  try { bmp = await createImageBitmap(file); }
+  catch (e) {
+    bmp = await new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () { res(img); };
+      img.onerror = rej;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  var w = bmp.width, h = bmp.height, side = Math.min(w, h);
+  var c = document.createElement("canvas");
+  c.width = c.height = 400;
+  c.getContext("2d").drawImage(bmp, (w - side) / 2, (h - side) / 2, side, side, 0, 0, 400, 400);
+  var q = 0.78, out = c.toDataURL("image/jpeg", q);
+  while (out.length > 120000 && q > 0.4) { q -= 0.1; out = c.toDataURL("image/jpeg", q); }
+  return out;
+}
+function formErr(id, msg) { var e = $(id); e.textContent = msg; e.hidden = false; }
+
+function openItem(id, cat) {
+  var it = id ? items.filter(function (x) { return x.id === id; })[0] : null;
+  editing = { id: id || null };
+  $("itemTitle").textContent = it ? "Edit dish" : "Add dish";
+  $("iCat").innerHTML = (restaurant.categories || []).map(function (c) {
+    return '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>";
+  }).join("");
+  $("iCat").value = it ? it.cat : cat;
+  $("iName").value = it ? it.n : "";
+  $("iDesc").value = it ? (it.d || "") : "";
+  $("iTag").value = it ? (it.t || "") : "";
+  prices = it && it.p && it.p.length ? it.p.map(function (x) { return { l: x.l || "", v: x.v }; }) : [{ l: "", v: "" }];
+  photo = ""; $("iUrl").value = "";
+  if (it && it.img) { if (/^data:/.test(it.img)) photo = it.img; else $("iUrl").value = it.img; }
+  renderPrices(); showPrev();
+  $("itemErr").hidden = true;
+  $("delItem").hidden = !it;
+  resetDel();
+  $("dlgItem").showModal();
+}
+function resetDel() { clearTimeout(delTimer); $("delItem").textContent = "Delete"; }
+$("cancelItem").addEventListener("click", function () { $("dlgItem").close(); });
+$("delItem").addEventListener("click", async function () {
+  if ($("delItem").textContent === "Delete") {
+    $("delItem").textContent = "Tap again to delete";
+    delTimer = setTimeout(resetDel, 4000);
+    return;
+  }
+  resetDel();
+  if (await run(F.fs.deleteDoc(dRef(editing.id)), "Dish deleted")) $("dlgItem").close();
+});
+$("fItem").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("itemErr").hidden = true;
+  var n = $("iName").value.trim();
+  if (!n) return formErr("itemErr", "Enter the dish name.");
+  var p = prices.map(function (x) {
+    return { l: String(x.l || "").trim(), v: Number(String(x.v).replace(/[^0-9.]/g, "")) };
+  }).filter(function (x) { return x.v > 0; });
+  if (!p.length) return formErr("itemErr", "Add at least one price.");
+  var img = currentImg();
+  if (img && !/^(https:\/\/|data:image\/)/i.test(img)) return formErr("itemErr", "The photo link must start with https://");
+  var old = editing.id ? items.filter(function (x) { return x.id === editing.id; })[0] : null;
+  var order = old ? (old.order || 0) : items.reduce(function (m, o) { return Math.max(m, o.order || 0); }, -1) + 1;
+  var data = { cat: $("iCat").value, n: n, d: $("iDesc").value.trim(), p: p, t: $("iTag").value, img: img, sold: old ? !!old.sold : false, order: order };
+  var ref = editing.id ? dRef(editing.id) : F.fs.doc(F.fs.collection(F.db, "restaurants", RID, "items"));
+  if (await run(F.fs.setDoc(ref, data), "Saved")) $("dlgItem").close();
+});
+
+// ---------- category sheet
+function openCat(id) {
+  var c = id ? (restaurant.categories || []).filter(function (x) { return x.id === id; })[0] : null;
+  catEditing = id || null;
+  $("catTitle").textContent = c ? "Rename category" : "Add category";
+  $("cName").value = c ? c.name : "";
+  $("cBlurb").value = c ? (c.blurb || "") : "";
+  $("catErr").hidden = true;
+  $("delCat").hidden = !c;
+  $("dlgCat").showModal();
+}
+$("addCat").addEventListener("click", function () { openCat(null); });
+$("cancelCat").addEventListener("click", function () { $("dlgCat").close(); });
+$("delCat").addEventListener("click", async function () {
+  if (items.some(function (it) { return it.cat === catEditing; })) return formErr("catErr", "Delete or move this category's dishes first.");
+  var cats = (restaurant.categories || []).filter(function (x) { return x.id !== catEditing; });
+  if (await run(F.fs.updateDoc(rRef(), { categories: cats }), "Category deleted")) $("dlgCat").close();
+});
+$("fCat").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("catErr").hidden = true;
+  var name = $("cName").value.trim();
+  if (!name) return formErr("catErr", "Enter the category name.");
+  var blurb = $("cBlurb").value.trim();
+  var cats = (restaurant.categories || []).map(function (x) { return Object.assign({}, x); });
+  if (catEditing) {
+    cats.forEach(function (x) { if (x.id === catEditing) { x.name = name; x.blurb = blurb; } });
+  } else {
+    cats.push({ id: slug(name) + "-" + Math.random().toString(36).slice(2, 6), name: name, blurb: blurb });
+  }
+  if (await run(F.fs.updateDoc(rRef(), { categories: cats }), "Saved")) $("dlgCat").close();
+});
+</script>
+</body>
+</html>
