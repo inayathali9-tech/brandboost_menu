@@ -1,6 +1,9 @@
 // Shared Firebase connection for the public menu (index.html) and the admin panel (admin.html).
-// RID is this restaurant's id in the database. Use a new RID for each new client.
-export const RID = "mandi-co";
+// One site serves many cafes. The cafe comes from the link: index.html?r=cafe-two and admin.html?r=cafe-two.
+// Without ?r= the site uses DEFAULT_RID.
+export const DEFAULT_RID = "mandi-co";
+const asked = (new URLSearchParams(location.search).get("r") || "").trim().toLowerCase();
+export const RID = /^[a-z0-9-]{2,40}$/.test(asked) ? asked : DEFAULT_RID;
 
 export const firebaseConfig = {
   apiKey: "AIzaSyC_SBTNo_MxJr6bd2tyGCkDi27KNgSHvms",

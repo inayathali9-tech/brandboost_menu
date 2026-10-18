@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Agency Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column. Red top bar, one card per cafe with its links and owners, an Add cafe button, and sheets for adding a cafe or changing owners. */
+:root {
+  --bg: #FFF1DC;
+  --surface: #FFF8EC;
+  --ink: #2A160E;
+  --muted: #7B5B4C;
+  --line: #EBCFA9;
+  --bar: #8E1409;
+  --on-bar: #FFF1DC;
+  --price: #B5200F;
+  --saffron: #F4A300;
+  --on-saffron: #2A160E;
+  --bad: #B5200F;
+  --field: #FFFDF8;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1D110B; --surface: #2A1912; --ink: #FBEAD3; --muted: #C9A892; --line: #4A3226;
+    --bar: #5E1209; --price: #FF7A5C; --saffron: #FFB830; --bad: #FF7A5C; --field: #231610;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+[hidden] { display: none !important; }
+h1, h2, h3, p { margin: 0; }
+.wrap { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.btn {
+  font: inherit; font-weight: 700; font-size: 0.95rem; min-height: 44px; padding: 0 16px;
+  border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
+}
+.btn.primary { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 38px; padding: 0 12px; font-size: 0.88rem; }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+label { display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 4px; }
+input, select, textarea { font: inherit; color: var(--ink); width: 100%; min-height: 44px; padding: 9px 12px; background: var(--field); border: 1.5px solid var(--line); border-radius: 10px; }
+textarea { resize: vertical; min-height: 84px; }
+.err { color: var(--bad); font-weight: 600; font-size: 0.9rem; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.center { min-height: 60vh; display: grid; place-items: center; color: var(--muted); }
+.login { padding-block: 48px; }
+.card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.login h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; letter-spacing: -0.02em; }
+.top { background: var(--bar); color: var(--on-bar); position: sticky; top: 0; z-index: 5; }
+.top .wrap { display: flex; align-items: center; gap: 10px; padding-block: 12px; flex-wrap: wrap; }
+.top .ttl { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; flex: 1; min-width: 0; }
+.top .who { font-size: 0.78rem; opacity: 0.85; flex-basis: 100%; overflow-wrap: anywhere; }
+.top .btn { background: transparent; color: var(--on-bar); border-color: rgba(255, 241, 220, 0.5); min-height: 38px; font-size: 0.88rem; }
+main { padding-block: 18px 40px; display: flex; flex-direction: column; gap: 16px; }
+.sec-title { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; }
+.cafe h3 { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; overflow-wrap: anywhere; }
+.cafe code { font-size: 0.85rem; background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+.owners { font-size: 0.9rem; overflow-wrap: anywhere; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+dialog { width: min(92vw, 520px); max-height: 90vh; padding: 0; border: 0; border-radius: 18px; background: var(--bg); color: var(--ink); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+dialog::backdrop { background: rgba(20, 8, 4, 0.55); }
+dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 90vh; overflow-y: auto; }
+dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 0.92rem; padding: 11px 18px; border-radius: 999px; max-width: 90vw; text-align: center; transition: opacity 0.2s, transform 0.2s; z-index: 50; overflow-wrap: anywhere; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.bad { background: var(--bad); color: #fff; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="boot" class="center">Loading...</div>
+
+<div id="login" class="wrap login" hidden>
+  <form id="fLogin" class="card" novalidate style="padding:22px;gap:16px">
+    <h1>Agency Panel</h1>
+    <p class="muted">For Brand Boost Studio. Log in to add cafes and choose who can edit each menu.</p>
+    <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" required></div>
+    <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <p id="loginErr" class="err" role="alert" hidden></p>
+    <button id="loginBtn" class="btn primary" type="submit">Log in</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="wrap">
+      <span class="ttl">Agency Panel</span>
+      <button id="signOut" class="btn small" type="button">Log out</button>
+      <span class="who" id="who"></span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="notAgency" class="card" hidden>
+      <h2 class="sec-title">Agency login needed</h2>
+      <p class="muted">This login is not an agency login. Log out and use the agency email. If it should work, check that the email is in the Firestore rules.</p>
+    </section>
+
+    <div id="main" class="stack" hidden>
+      <button id="addCafe" class="btn primary" type="button" style="align-self:flex-start">+ Add cafe</button>
+      <div id="cafes" class="stack"></div>
+    </div>
+  </main>
+</div>
+
+<dialog id="dlgCafe">
+  <form id="fCafe" novalidate>
+    <h2>Add cafe</h2>
+    <div><label for="aName">Cafe name</label><input id="aName" maxlength="60" placeholder="Blue Door Cafe"></div>
+    <div><label for="aId">Menu link name</label><input id="aId" maxlength="40" placeholder="blue-door-cafe" autocapitalize="none">
+      <p class="muted" style="margin-top:4px">Lowercase letters, numbers and dashes. Becomes <b>?r=</b> in the menu link. You cannot change it later.</p></div>
+    <div><label for="aOwners">Owner emails (one per line)</label><textarea id="aOwners" placeholder="owner@gmail.com" autocapitalize="none"></textarea>
+      <p class="muted" style="margin-top:4px">Also add each owner under Firebase, Authentication, Users, with a password.</p></div>
+    <div><label for="aStart">Start with</label>
+      <select id="aStart"><option value="empty">An empty menu</option><option value="sample">Sample dishes (Mandi, Burgers, Pizza and more)</option></select></div>
+    <p id="cafeErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelCafe" class="btn ghost" type="button">Cancel</button>
+      <button id="saveCafe" class="btn primary" type="submit">Create cafe</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgOwners">
+  <form id="fOwners" novalidate>
+    <h2 id="ownTitle">Owners</h2>
+    <div><label for="oEmails">Owner emails (one per line)</label><textarea id="oEmails" autocapitalize="none"></textarea>
+      <p class="muted" style="margin-top:4px">Remove an email to stop that person editing this menu. The menu stays live.</p></div>
+    <p id="ownErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelOwn" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save owners</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { start } from "./firebase-config.js";
+import { SAMPLE } from "./sample-menu.js";
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40); }
+function parseEmails(text) {
+  var out = [];
+  String(text).split(/[\s,;]+/).forEach(function (e) {
+    e = e.trim().toLowerCase();
+    if (e && out.indexOf(e) < 0) out.push(e);
+  });
+  return out;
+}
+function badEmail(list) {
+  return list.filter(function (e) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); })[0];
+}
+
+var F = null, user = null, cafes = [], owners = {}, ownersOk = true;
+var ready = { o: false, c: false };
+var unsubs = [], ownerFor = null;
+
+function toast(msg, bad) {
+  var t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(function () { t.className = ""; }, 3400);
+}
+function friendly(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("permission-denied") >= 0) return "This login is not allowed to do that.";
+  if (c.indexOf("unavailable") >= 0 || c.indexOf("network") >= 0) return "No internet. Check your connection and try again.";
+  return (e && e.message) || "Something went wrong. Try again.";
+}
+async function run(p, ok) {
+  try {
+    await Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej({ code: "unavailable" }); }, 15000); })]);
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { toast(friendly(e), true); return false; }
+}
+function formErr(id, msg) { var e = $(id); e.textContent = msg; e.hidden = false; }
+function authMsg(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0 || c.indexOf("invalid-email") >= 0) return "Wrong email or password.";
+  if (c.indexOf("user-disabled") >= 0) return "This account is switched off.";
+  if (c.indexOf("too-many-requests") >= 0) return "Too many tries. Wait a few minutes and try again.";
+  return "Could not log in. Try again.";
+}
+
+(async function init() {
+  try { F = await start({ auth: true }); }
+  catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
+  F.authMod.onAuthStateChanged(F.auth, onUser);
+})();
+
+function onUser(u) {
+  user = u;
+  $("boot").hidden = true;
+  $("login").hidden = !!u;
+  $("app").hidden = !u;
+  unsubs.forEach(function (f) { f(); });
+  unsubs = [];
+  ready.o = ready.c = false; ownersOk = true; cafes = []; owners = {};
+  $("main").hidden = true; $("notAgency").hidden = true;
+  if (u) { $("who").textContent = u.email; subscribe(); }
+}
+$("fLogin").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var err = $("loginErr"); err.hidden = true;
+  var btn = $("loginBtn"); btn.disabled = true;
+  try { await F.authMod.signInWithEmailAndPassword(F.auth, $("lEmail").value.trim(), $("lPass").value); }
+  catch (x) { err.textContent = authMsg(x); err.hidden = false; }
+  btn.disabled = false;
+});
+$("signOut").addEventListener("click", function () { F.authMod.signOut(F.auth); });
+
+function subscribe() {
+  var fs = F.fs, db = F.db;
+  unsubs.push(fs.onSnapshot(fs.collection(db, "owners"), function (s) {
+    owners = {};
+    s.docs.forEach(function (d) { owners[d.id] = d.data().emails || []; });
+    ownersOk = true; ready.o = true; draw();
+  }, function () { ownersOk = false; ready.o = true; draw(); }));
+  unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id }; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name); });
+    ready.c = true; draw();
+  }, function (e) { toast(friendly(e), true); }));
+}
+
+function menuUrl(id) { return new URL("index.html?r=" + id, location.href).href; }
+
+function draw() {
+  if (!user || !ready.o || !ready.c) return;
+  $("notAgency").hidden = ownersOk;
+  $("main").hidden = !ownersOk;
+  if (!ownersOk) return;
+  $("cafes").innerHTML = cafes.length ? cafes.map(function (c) {
+    var list = owners[c.id] || [];
+    return '<section class="card cafe">' +
+      "<h3>" + esc(c.name) + "</h3>" +
+      '<p class="muted">Link name: <code>' + esc(c.id) + "</code></p>" +
+      '<p class="owners">' + (list.length ? "<b>Owners:</b> " + list.map(esc).join(", ") : '<span class="err">No owners yet. Nobody can edit this menu.</span>') + "</p>" +
+      '<div class="btns">' +
+        '<a class="btn small" href="index.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">View menu</a>' +
+        '<a class="btn small" href="admin.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Edit menu</a>' +
+        '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
+        '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +
+      "</div></section>";
+  }).join("") : '<p class="muted">No cafes yet. Tap Add cafe to create the first one.</p>';
+}
+
+$("cafes").addEventListener("click", async function (e) {
+  var b = e.target.closest("[data-act]");
+  if (!b) return;
+  var id = b.dataset.id;
+  if (b.dataset.act === "copy") {
+    var url = menuUrl(id);
+    try { await navigator.clipboard.writeText(url); toast("Menu link copied"); }
+    catch (x) { toast(url); }
+  } else if (b.dataset.act === "owners") {
+    ownerFor = id;
+    var c = cafes.filter(function (x) { return x.id === id; })[0];
+    $("ownTitle").textContent = "Owners of " + (c ? c.name : id);
+    $("oEmails").value = (owners[id] || []).join("\n");
+    $("ownErr").hidden = true;
+    $("dlgOwners").showModal();
+  }
+});
+
+// ---------- owners
+$("cancelOwn").addEventListener("click", function () { $("dlgOwners").close(); });
+$("fOwners").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("ownErr").hidden = true;
+  var list = parseEmails($("oEmails").value);
+  var bad = badEmail(list);
+  if (bad) return formErr("ownErr", bad + " is not a valid email.");
+  if (await run(F.fs.setDoc(F.fs.doc(F.db, "owners", ownerFor), { emails: list }), "Owners saved")) $("dlgOwners").close();
+});
+
+// ---------- add cafe
+var idTouched = false;
+$("aName").addEventListener("input", function () { if (!idTouched) $("aId").value = slug($("aName").value); });
+$("aId").addEventListener("input", function () { idTouched = true; });
+$("addCafe").addEventListener("click", function () {
+  idTouched = false;
+  $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty";
+  $("cafeErr").hidden = true;
+  $("dlgCafe").showModal();
+});
+$("cancelCafe").addEventListener("click", function () { $("dlgCafe").close(); });
+$("fCafe").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("cafeErr").hidden = true;
+  var fs = F.fs, db = F.db;
+  var name = $("aName").value.trim();
+  var id = $("aId").value.trim().toLowerCase();
+  if (!name) return formErr("cafeErr", "Enter the cafe name.");
+  if (!/^[a-z0-9-]{2,40}$/.test(id)) return formErr("cafeErr", "The link name needs 2 to 40 lowercase letters, numbers or dashes.");
+  var list = parseEmails($("aOwners").value);
+  var bad = badEmail(list);
+  if (bad) return formErr("cafeErr", bad + " is not a valid email.");
+  $("saveCafe").disabled = true;
+  try {
+    var snap = await fs.getDoc(fs.doc(db, "restaurants", id));
+    if (snap.exists()) { formErr("cafeErr", "That link name is already used. Pick another."); return; }
+    var sample = $("aStart").value === "sample";
+    var cats = sample ? SAMPLE.categories : [{ id: "starters", name: "Starters", blurb: "" }];
+    var b = fs.writeBatch(db);
+    b.set(fs.doc(db, "restaurants", id), { name: name, tagline: "", categories: cats, links: { instagram: "", whatsapp: "", review: "" } });
+    b.set(fs.doc(db, "owners", id), { emails: list });
+    if (sample) {
+      SAMPLE.items.forEach(function (it, i) {
+        b.set(fs.doc(fs.collection(db, "restaurants", id, "items")), { cat: it.cat, n: it.n, d: it.d, p: it.p, t: it.t || "", img: "", sold: false, order: i });
+      });
+    }
+    if (await run(b.commit(), "Cafe created")) $("dlgCafe").close();
+  } catch (x) { formErr("cafeErr", friendly(x)); }
+  finally { $("saveCafe").disabled = false; }
+});
+</script>
+</body>
+</html>

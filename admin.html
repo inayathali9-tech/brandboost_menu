@@ -183,7 +183,7 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
   <header class="top">
     <div class="wrap">
       <span class="ttl">Menu Panel</span>
-      <a class="btn small" href="index.html" target="_blank" rel="noopener">View menu</a>
+      <a class="btn small" id="viewLink" href="index.html" target="_blank" rel="noopener">View menu</a>
       <button id="signOut" class="btn small" type="button">Log out</button>
       <span class="who" id="who"></span>
     </div>
@@ -191,12 +191,8 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
 
   <main class="wrap">
     <section id="setup" class="card" hidden>
-      <h2 class="sec-title">Set up this menu</h2>
-      <p class="muted">No menu is saved yet. Start with the sample menu to see how it works, or start empty and add your own dishes.</p>
-      <div class="actions">
-        <button id="seedSample" class="btn primary" type="button">Start with sample menu</button>
-        <button id="seedEmpty" class="btn" type="button">Start empty</button>
-      </div>
+      <h2 class="sec-title">Menu not set up yet</h2>
+      <p class="muted">This cafe has not been created yet. Contact Brand Boost Studio at brandbooststudio110@gmail.com to get started.</p>
     </section>
 
     <div id="panel" class="stack" hidden>
@@ -280,7 +276,6 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
-import { SAMPLE } from "./sample-menu.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -344,7 +339,7 @@ function onUser(u) {
   unsubs = [];
   ready.r = ready.i = false;
   restaurant = null; items = [];
-  if (u) { $("who").textContent = u.email; subscribe(); }
+  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID; subscribe(); }
 }
 $("fLogin").addEventListener("submit", async function (e) {
   e.preventDefault();
@@ -426,21 +421,6 @@ $("cats").addEventListener("change", function (e) {
   if (!c) return;
   run(F.fs.updateDoc(dRef(c.dataset.id), { sold: !c.checked }), c.checked ? "Marked available" : "Marked sold out");
 });
-
-// ---------- first-time setup
-async function seed(withSample) {
-  var fs = F.fs, db = F.db;
-  var base = withSample ? SAMPLE : { name: "My Restaurant", tagline: "", categories: [{ id: "starters", name: "Starters", blurb: "" }], items: [] };
-  var b = fs.writeBatch(db);
-  b.set(rRef(), { name: base.name, tagline: base.tagline, categories: base.categories });
-  base.items.forEach(function (it, i) {
-    var ref = fs.doc(fs.collection(db, "restaurants", RID, "items"));
-    b.set(ref, { cat: it.cat, n: it.n, d: it.d, p: it.p, t: it.t || "", img: "", sold: false, order: i });
-  });
-  await run(b.commit(), "Menu created");
-}
-$("seedSample").addEventListener("click", function () { seed(true); });
-$("seedEmpty").addEventListener("click", function () { seed(false); });
 
 $("saveR").addEventListener("click", function () {
   var name = $("rName").value.trim();

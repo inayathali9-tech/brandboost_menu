@@ -215,8 +215,8 @@ img { max-width: 100%; }
 <body>
 <header class="top">
   <div class="wrap">
-    <h1 id="rname">Mandi &amp; Co.</h1>
-    <p class="tagline" id="rtag">Arabian mandi, grills, wraps, burgers and pizza. Scan, browse, order at the counter.</p>
+    <h1 id="rname">Menu</h1>
+    <p class="tagline" id="rtag" hidden></p>
   </div>
 </header>
 
@@ -242,7 +242,6 @@ img { max-width: 100%; }
 </footer>
 
 <script type="module">
-import { SAMPLE } from "./sample-menu.js";
 import { RID, start } from "./firebase-config.js";
 
 var ART = {
@@ -370,8 +369,19 @@ tabsEl.addEventListener("click", function (e) {
   setActive(b.dataset.id);
 });
 
-// Show the sample menu straight away, then switch to the saved menu once the database answers.
-render(SAMPLE);
+function note(msg) {
+  menuEl.innerHTML = '<p class="blurb" style="padding-top:28px">' + esc(msg) + "</p>";
+  tabsEl.innerHTML = "";
+  document.getElementById("links").hidden = true;
+}
+function notFound() {
+  document.getElementById("rname").textContent = "Menu not found";
+  document.getElementById("rtag").hidden = true;
+  document.title = "Menu not found";
+  note("We could not find this menu. Please check the link or scan the QR code again.");
+}
+
+note("Loading menu...");
 (async function () {
   try {
     var F = await start({});
@@ -382,9 +392,16 @@ render(SAMPLE);
         render({ name: state.r.name, tagline: state.r.tagline, categories: state.r.categories || [], items: state.items, links: state.r.links });
       }
     }
-    fs.onSnapshot(fs.doc(db, "restaurants", RID), function (s) { state.r = s.exists() ? s.data() : null; sync(); }, function (e) { console.warn(e); });
-    fs.onSnapshot(fs.collection(db, "restaurants", RID, "items"), function (s) { state.items = s.docs.map(function (d) { return d.data(); }); sync(); }, function (e) { console.warn(e); });
-  } catch (e) { console.warn(e); }
+    function failed(e) { console.warn(e); if (!state.r) note("The menu could not load. Check your internet and refresh."); }
+    fs.onSnapshot(fs.doc(db, "restaurants", RID), function (s) {
+      state.r = s.exists() ? s.data() : null;
+      if (!s.exists()) notFound(); else sync();
+    }, failed);
+    fs.onSnapshot(fs.collection(db, "restaurants", RID, "items"), function (s) {
+      state.items = s.docs.map(function (d) { return d.data(); });
+      sync();
+    }, failed);
+  } catch (e) { console.warn(e); note("The menu could not load. Check your internet and refresh."); }
 })();
 </script>
 </body>
