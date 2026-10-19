@@ -262,7 +262,7 @@ function draw() {
       '<p class="muted">Link name: <code>' + esc(c.id) + "</code></p>" +
       '<p class="owners">' + (list.length ? "<b>Owners:</b> " + list.map(esc).join(", ") : '<span class="err">No owners yet. Nobody can edit this menu.</span>') + "</p>" +
       '<div class="btns">' +
-        '<a class="btn small" href="index.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">View menu</a>' +
+        '<a class="btn small" href="index.html?r=' + encodeURIComponent(c.id) + '&fresh=1" target="_blank" rel="noopener">View menu</a>' +
         '<a class="btn small" href="admin.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Edit menu</a>' +
         '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
         '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +

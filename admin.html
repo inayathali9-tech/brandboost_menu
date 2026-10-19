@@ -339,7 +339,7 @@ function onUser(u) {
   unsubs = [];
   ready.r = ready.i = false;
   restaurant = null; items = [];
-  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID; subscribe(); }
+  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID + "&fresh=1"; subscribe(); }
 }
 $("fLogin").addEventListener("submit", async function (e) {
   e.preventDefault();

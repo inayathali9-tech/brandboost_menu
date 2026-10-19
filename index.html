@@ -381,27 +381,37 @@ function notFound() {
   note("We could not find this menu. Please check the link or scan the QR code again.");
 }
 
-note("Loading menu...");
+// Each phone keeps the last menu it saw. Within 5 minutes it does not ask the database at all,
+// which saves the free daily limit. After that it fetches once (no live listener).
+// If the database cannot be reached, the saved menu is shown instead of an error.
+// Add &fresh=1 to a link to skip the saved copy (the admin "View menu" button does).
+var TTL = 5 * 60 * 1000;
+var CKEY = "menu:" + RID;
+var FRESH = /[?&]fresh=1(&|$)/.test(location.search);
+function readCache() {
+  try { var c = JSON.parse(localStorage.getItem(CKEY) || "null"); return c && c.data && c.t ? c : null; }
+  catch (e) { return null; }
+}
+function writeCache(data) { try { localStorage.setItem(CKEY, JSON.stringify({ t: Date.now(), data: data })); } catch (e) {} }
+
 (async function () {
+  var cached = readCache();
+  if (cached) render(cached.data); else note("Loading menu...");
+  if (cached && !FRESH && Date.now() - cached.t < TTL) return;
   try {
     var F = await start({});
     var fs = F.fs, db = F.db;
-    var state = { r: null, items: null };
-    function sync() {
-      if (state.r && state.items) {
-        render({ name: state.r.name, tagline: state.r.tagline, categories: state.r.categories || [], items: state.items, links: state.r.links });
-      }
-    }
-    function failed(e) { console.warn(e); if (!state.r) note("The menu could not load. Check your internet and refresh."); }
-    fs.onSnapshot(fs.doc(db, "restaurants", RID), function (s) {
-      state.r = s.exists() ? s.data() : null;
-      if (!s.exists()) notFound(); else sync();
-    }, failed);
-    fs.onSnapshot(fs.collection(db, "restaurants", RID, "items"), function (s) {
-      state.items = s.docs.map(function (d) { return d.data(); });
-      sync();
-    }, failed);
-  } catch (e) { console.warn(e); note("The menu could not load. Check your internet and refresh."); }
+    var r = await fs.getDoc(fs.doc(db, "restaurants", RID));
+    if (!r.exists()) { try { localStorage.removeItem(CKEY); } catch (e) {} notFound(); return; }
+    var s = await fs.getDocs(fs.collection(db, "restaurants", RID, "items"));
+    var rd = r.data();
+    var data = { name: rd.name, tagline: rd.tagline, categories: rd.categories || [], items: s.docs.map(function (d) { return d.data(); }), links: rd.links };
+    if (!cached || JSON.stringify(cached.data) !== JSON.stringify(data)) render(data);
+    writeCache(data);
+  } catch (e) {
+    console.warn(e);
+    if (!cached) note("The menu could not load. Check your internet and refresh.");
+  }
 })();
 </script>
 </body>
