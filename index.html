@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-state="loading">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: one phone-width column. A chili-red header and sticky category bar sit over a warm saffron-tinted page; dishes are plain rows (text left, photo slot right) so the food photos carry the colour. */
+/* Layout: one phone-width column. A coloured header and sticky category bar sit over a warm page; each dish is a soft card (text left, photo right). Each cafe can choose its own three colours in its panel; the page works out the rest. */
 :root {
   --bg: #FFF1DC;
   --surface: #FFF8EC;
@@ -53,6 +53,15 @@
   color-scheme: dark;
 }
 
+/* While the menu is loading, stay neutral so a cafe's own colours do not flash red first. */
+html[data-state="loading"][lang] {
+  --bar: #3A3430;
+  --on-bar: #FFF8EF;
+  --chip-line: #5B534D;
+  --saffron: #CFC6BC;
+  --on-saffron: #2A160E;
+}
+
 * { box-sizing: border-box; }
 body {
   background: var(--bg);
@@ -79,17 +88,13 @@ h1, h2, h3, p { margin: 0; }
 
 /* Header */
 .top { background: var(--bar); color: var(--on-bar); }
-.top .wrap { padding-block: 22px 18px; display: flex; flex-direction: column; gap: 10px; }
-.demo-tag {
-  align-self: flex-start;
-  font-size: 0.7rem;
+.top .wrap { padding-block: 26px 22px; display: flex; flex-direction: column; gap: 8px; }
+.eyebrow {
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--saffron);
-  color: var(--on-saffron);
+  color: var(--saffron);
 }
 .top h1 {
   font-family: var(--font-display);
@@ -99,7 +104,7 @@ h1, h2, h3, p { margin: 0; }
   letter-spacing: -0.02em;
   text-wrap: balance;
 }
-.top .tagline { font-size: 1rem; opacity: 0.92; max-width: 34ch; text-wrap: balance; }
+.top .tagline { font-size: 1rem; opacity: 0.9; max-width: 34ch; text-wrap: balance; }
 
 /* Sticky category bar */
 .tabs-bar {
@@ -134,7 +139,7 @@ h1, h2, h3, p { margin: 0; }
 
 /* Menu sections */
 main { padding-block: 8px 28px; }
-.sec { scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px)); padding-top: 22px; }
+.sec { scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px)); padding-top: 28px; }
 .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .sec h2 {
   font-family: var(--font-display);
@@ -143,15 +148,19 @@ main { padding-block: 8px 28px; }
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
+.sec h2::after { content: ""; display: block; width: 34px; height: 4px; border-radius: 4px; background: var(--saffron); margin-top: 7px; }
 .count { font-size: 0.8rem; color: var(--muted); font-weight: 600; white-space: nowrap; }
-.blurb { color: var(--muted); font-size: 0.92rem; margin-top: 2px; max-width: 52ch; }
+.blurb { color: var(--muted); font-size: 0.92rem; margin-top: 8px; max-width: 52ch; }
 
 .item {
   display: flex; gap: 14px; align-items: flex-start;
-  padding-block: 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 14px;
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
 }
-.sec .item:last-child { border-bottom: 0; }
+.sec-head + .item, .blurb + .item { margin-top: 16px; }
 .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .nameline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .item h3 { font-size: 1.05rem; font-weight: 700; line-height: 1.25; }
@@ -162,13 +171,13 @@ main { padding-block: 8px 28px; }
 }
 .desc { color: var(--muted); font-size: 0.9rem; max-width: 46ch; }
 .prices { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 3px; }
-.price { font-weight: 700; color: var(--price); font-variant-numeric: tabular-nums; }
-.price small { font-weight: 600; font-size: 0.78rem; color: var(--muted); margin-right: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+.price { font-family: var(--font-display); font-weight: 800; font-size: 1.08rem; color: var(--price); font-variant-numeric: tabular-nums; }
+.price small { font-family: var(--font-body); font-weight: 600; font-size: 0.74rem; color: var(--muted); margin-right: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* Dish picture. Each category has a drawn illustration; give any dish an img URL in MENU below and a real photo replaces it. */
 .tile {
   flex: none;
-  width: 104px; height: 104px;
+  width: 100px; height: 100px;
   border-radius: 14px;
   overflow: hidden;
   display: grid; place-items: center;
@@ -179,21 +188,29 @@ main { padding-block: 8px 28px; }
 
 /* Footer */
 footer { background: var(--bar); color: var(--on-bar); }
-footer .wrap { padding-block: 22px 26px; display: flex; flex-direction: column; gap: 6px; }
-.brand { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; }
+footer .wrap { padding-block: 20px 24px; display: flex; flex-direction: column; gap: 4px; }
+.brand { font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; }
 .brand span { color: var(--saffron); }
-footer p { font-size: 0.88rem; opacity: 0.92; max-width: 44ch; }
-footer .fine { font-size: 0.78rem; opacity: 0.75; margin-top: 6px; }
+footer p { font-size: 0.84rem; opacity: 0.85; max-width: 46ch; }
 .mail { user-select: all; font-weight: 600; }
 
+/* Shown instead of the menu when a cafe's plan has lapsed (after the grace days). */
+.locked { padding-block: 64px 80px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.locked svg { width: 46px; height: 46px; color: var(--muted); }
+.locked h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; text-wrap: balance; }
+.locked p { color: var(--muted); max-width: 32ch; text-wrap: balance; }
+
 @media (min-width: 560px) {
-  .tile { width: 124px; height: 124px; }
+  .tile { width: 116px; height: 116px; }
 }
 
 body { margin: 0; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 .item.sold .info, .item.sold .tile { opacity: 0.5; }
+@media (prefers-reduced-motion: no-preference) {
+  .tab, .lnk { transition: background-color 0.15s, border-color 0.15s; }
+}
 .tag.out { background: var(--line); color: var(--muted); }
 
 .links { padding-block: 6px 30px; }
@@ -215,6 +232,7 @@ img { max-width: 100%; }
 <body>
 <header class="top">
   <div class="wrap">
+    <p class="eyebrow">Menu</p>
     <h1 id="rname">Menu</h1>
     <p class="tagline" id="rtag" hidden></p>
   </div>
@@ -226,6 +244,11 @@ img { max-width: 100%; }
 
 <main>
   <div class="wrap" id="menu"></div>
+  <section class="locked wrap" id="locked" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+    <h2>Menu temporarily unavailable</h2>
+    <p>Please ask our staff for the menu. Sorry for the trouble.</p>
+  </section>
 </main>
 
 <section class="links wrap" id="links" hidden>
@@ -236,13 +259,13 @@ img { max-width: 100%; }
 <footer>
   <div class="wrap">
     <div class="brand">Brand Boost <span>Studio</span></div>
-    <p>Digital menus, QR codes, Google review cards and WhatsApp bots for local businesses in Hyderabad.</p>
     <p>Want a menu like this for your restaurant? <span class="mail">brandbooststudio110@gmail.com</span></p>
   </div>
 </footer>
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
+import { applyTheme, subStatus, rupees } from "./shared.js";
 
 var ART = {
   mandi: '<svg viewBox="0 0 96 96" aria-hidden="true"><ellipse cx="48" cy="64" rx="42" ry="15" fill="#fff" fill-opacity="0.92"/><ellipse cx="48" cy="61" rx="33" ry="10" fill="#F2D9A0"/><path d="M20 60c4-26 52-26 56 0z" fill="#F3D48A"/><path d="M29 55c3-16 35-16 38 0z" fill="#F9E8B9"/><ellipse cx="38" cy="40" rx="12" ry="7.5" fill="#8A3F14" transform="rotate(-22 38 40)"/><ellipse cx="59" cy="38" rx="11" ry="7" fill="#A64F1B" transform="rotate(16 59 38)"/><ellipse cx="38" cy="38" rx="6" ry="2.5" fill="#C9743A" transform="rotate(-22 38 38)"/><circle cx="30" cy="57" r="2.2" fill="#2E7D32"/><circle cx="66" cy="56" r="2.2" fill="#2E7D32"/><circle cx="48" cy="50" r="2.4" fill="#D32F2F"/><circle cx="54" cy="53" r="1.8" fill="#7B3F12"/></svg>',
@@ -269,7 +292,6 @@ function safeImg(u) {
   u = String(u || "").trim();
   return /^(https:\/\/|data:image\/)/i.test(u) ? u : "";
 }
-function rupees(n) { return "₹" + Number(n).toLocaleString("en-IN"); }
 
 var IC_IG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>';
 var IC_WA = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.3 18.7z"/><path d="M9.2 8.6c.4 2.8 2.4 4.9 5.4 5.8l1.2-1.4-2-1-.9.8c-.9-.4-1.7-1.2-2.1-2.1l.8-.9-1-2z" fill="currentColor" stroke="none"/></svg>';
@@ -320,8 +342,22 @@ function itemHTML(it, cat) {
   "</article>";
 }
 
+function ready() { document.documentElement.removeAttribute("data-state"); }
+
 function render(data) {
+  ready();
+  applyTheme(document.documentElement, data.theme, document.documentElement);
   document.getElementById("rname").textContent = data.name || "Menu";
+  if (subStatus(data.sub).state === "locked") {
+    document.title = (data.name || "Menu") + " Menu";
+    menuEl.innerHTML = "";
+    tabsEl.innerHTML = "";
+    document.getElementById("links").hidden = true;
+    document.getElementById("rtag").hidden = true;
+    document.getElementById("locked").hidden = false;
+    return;
+  }
+  document.getElementById("locked").hidden = true;
   document.getElementById("rtag").textContent = data.tagline || "";
   document.getElementById("rtag").hidden = !data.tagline;
   document.title = (data.name || "Menu") + " Menu";
@@ -369,7 +405,9 @@ tabsEl.addEventListener("click", function (e) {
   setActive(b.dataset.id);
 });
 
-function note(msg) {
+function note(msg, done) {
+  if (done) ready();
+  document.getElementById("locked").hidden = true;
   menuEl.innerHTML = '<p class="blurb" style="padding-top:28px">' + esc(msg) + "</p>";
   tabsEl.innerHTML = "";
   document.getElementById("links").hidden = true;
@@ -378,7 +416,7 @@ function notFound() {
   document.getElementById("rname").textContent = "Menu not found";
   document.getElementById("rtag").hidden = true;
   document.title = "Menu not found";
-  note("We could not find this menu. Please check the link or scan the QR code again.");
+  note("We could not find this menu. Please check the link or scan the QR code again.", true);
 }
 
 // Each phone keeps the last menu it saw. Within 5 minutes it does not ask the database at all,
@@ -405,12 +443,12 @@ function writeCache(data) { try { localStorage.setItem(CKEY, JSON.stringify({ t:
     if (!r.exists()) { try { localStorage.removeItem(CKEY); } catch (e) {} notFound(); return; }
     var s = await fs.getDocs(fs.collection(db, "restaurants", RID, "items"));
     var rd = r.data();
-    var data = { name: rd.name, tagline: rd.tagline, categories: rd.categories || [], items: s.docs.map(function (d) { return d.data(); }), links: rd.links };
+    var data = { name: rd.name, tagline: rd.tagline, categories: rd.categories || [], items: s.docs.map(function (d) { return d.data(); }), links: rd.links, theme: rd.theme || null, sub: rd.sub || null };
     if (!cached || JSON.stringify(cached.data) !== JSON.stringify(data)) render(data);
     writeCache(data);
   } catch (e) {
     console.warn(e);
-    if (!cached) note("The menu could not load. Check your internet and refresh.");
+    if (!cached) note("The menu could not load. Check your internet and refresh.", true);
   }
 })();
 </script>

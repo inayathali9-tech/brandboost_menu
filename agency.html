@@ -70,6 +70,15 @@ main { padding-block: 18px 40px; display: flex; flex-direction: column; gap: 16p
 .cafe code { font-size: 0.85rem; background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
 .owners { font-size: 0.9rem; overflow-wrap: anywhere; }
 .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; margin-right: 8px; }
+.pill.active { background: #D9F2DF; color: #14532A; }
+.pill.grace { background: #FFF0C9; color: #4A3300; }
+.pill.locked { background: #FFE1DC; color: #5A0F07; }
+.pill.none { background: var(--line); color: var(--ink); }
+.subline { font-size: 0.9rem; }
+.radios { display: flex; flex-direction: column; gap: 8px; }
+.radios label { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field); }
+.radios input { width: 20px; min-height: 0; height: 20px; padding: 0; accent-color: var(--price); }
 dialog { width: min(92vw, 520px); max-height: 90vh; padding: 0; border: 0; border-radius: 18px; background: var(--bg); color: var(--ink); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
 dialog::backdrop { background: rgba(20, 8, 4, 0.55); }
 dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 90vh; overflow-y: auto; }
@@ -128,10 +137,28 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
       <p class="muted" style="margin-top:4px">Also add each owner under Firebase, Authentication, Users, with a password.</p></div>
     <div><label for="aStart">Start with</label>
       <select id="aStart"><option value="empty">An empty menu</option><option value="sample">Sample dishes (Mandi, Burgers, Pizza and more)</option></select></div>
+    <div><label for="aPlan">Plan</label>
+      <select id="aPlan"><option value="none">No plan yet (menu never switches off)</option><option value="monthly">Paid, monthly</option><option value="yearly">Paid, yearly</option></select></div>
     <p id="cafeErr" class="err" role="alert" hidden></p>
     <div class="actions">
       <button id="cancelCafe" class="btn ghost" type="button">Cancel</button>
       <button id="saveCafe" class="btn primary" type="submit">Create cafe</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPaid">
+  <form id="fPaid" novalidate>
+    <h2 id="paidTitle">Mark paid</h2>
+    <p id="paidNow" class="muted"></p>
+    <div class="radios" id="paidPlans"></div>
+    <div><label for="pDate">Paid until</label><input id="pDate" type="date">
+      <p class="muted" style="margin-top:4px">Worked out from the current due date. Change it if needed. After this date there are 3 extra days, then the menu switches off.</p></div>
+    <p id="paidErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="removePlan" class="btn ghost" type="button" style="margin-right:auto">Remove plan</button>
+      <button id="cancelPaid" class="btn ghost" type="button">Cancel</button>
+      <button id="savePaid" class="btn primary" type="submit">Save</button>
     </div>
   </form>
 </dialog>
@@ -154,6 +181,7 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
 <script type="module">
 import { start } from "./firebase-config.js";
 import { SAMPLE } from "./sample-menu.js";
+import { PLANS, GRACE_DAYS, subStatus, nextDue, addMonths, endOfDay, fmtDate, rupees } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -242,13 +270,23 @@ function subscribe() {
     ownersOk = true; ready.o = true; draw();
   }, function () { ownersOk = false; ready.o = true; draw(); }));
   unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
-    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id }; })
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
     ready.c = true; draw();
   }, function (e) { toast(friendly(e), true); }));
 }
 
 function menuUrl(id) { return new URL("index.html?r=" + id, location.href).href; }
+
+function days(n) { return n + (n === 1 ? " day" : " days"); }
+function subLine(sub) {
+  var st = subStatus(sub);
+  var plan = sub && PLANS[sub.plan] ? PLANS[sub.plan].label.toLowerCase() + ", " : "";
+  if (st.state === "active") return '<span class="pill active">Active</span>' + esc(plan) + "paid until " + fmtDate(st.due) + " (" + days(st.daysLeft) + " left)";
+  if (st.state === "grace") return '<span class="pill grace">Due</span>was due ' + fmtDate(st.due) + ". Switches off after " + fmtDate(st.lockAt) + " (" + days(st.daysLeft) + " left)";
+  if (st.state === "locked") return '<span class="pill locked">Switched off</span>was due ' + fmtDate(st.due) + ". Mark paid to switch it back on";
+  return '<span class="pill none">No plan</span>menu never switches off';
+}
 
 function draw() {
   if (!user || !ready.o || !ready.c) return;
@@ -261,7 +299,9 @@ function draw() {
       "<h3>" + esc(c.name) + "</h3>" +
       '<p class="muted">Link name: <code>' + esc(c.id) + "</code></p>" +
       '<p class="owners">' + (list.length ? "<b>Owners:</b> " + list.map(esc).join(", ") : '<span class="err">No owners yet. Nobody can edit this menu.</span>') + "</p>" +
+      '<p class="subline">' + subLine(c.sub) + "</p>" +
       '<div class="btns">' +
+        '<button class="btn small primary" type="button" data-act="paid" data-id="' + esc(c.id) + '">Mark paid</button>' +
         '<a class="btn small" href="index.html?r=' + encodeURIComponent(c.id) + '&fresh=1" target="_blank" rel="noopener">View menu</a>' +
         '<a class="btn small" href="admin.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Edit menu</a>' +
         '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
@@ -278,6 +318,8 @@ $("cafes").addEventListener("click", async function (e) {
     var url = menuUrl(id);
     try { await navigator.clipboard.writeText(url); toast("Menu link copied"); }
     catch (x) { toast(url); }
+  } else if (b.dataset.act === "paid") {
+    openPaid(id);
   } else if (b.dataset.act === "owners") {
     ownerFor = id;
     var c = cafes.filter(function (x) { return x.id === id; })[0];
@@ -286,6 +328,49 @@ $("cafes").addEventListener("click", async function (e) {
     $("ownErr").hidden = true;
     $("dlgOwners").showModal();
   }
+});
+
+// ---------- mark paid
+var paidFor = null, dateTouched = false;
+function pad(n) { return (n < 10 ? "0" : "") + n; }
+function toInput(ms) { var d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function fromInput(v) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+  return m ? endOfDay(new Date(+m[1], +m[2] - 1, +m[3]).getTime()) : null;
+}
+function chosenPlan() { var r = document.querySelector('#paidPlans input:checked'); return r ? r.value : "monthly"; }
+function suggestDate() {
+  var c = cafes.filter(function (x) { return x.id === paidFor; })[0];
+  $("pDate").value = toInput(nextDue(c ? c.sub : null, chosenPlan()));
+}
+function openPaid(id) {
+  paidFor = id; dateTouched = false;
+  var c = cafes.filter(function (x) { return x.id === id; })[0] || { sub: null };
+  var cur = c.sub && PLANS[c.sub.plan] ? c.sub.plan : "monthly";
+  $("paidTitle").textContent = "Mark paid: " + (c.name || id);
+  $("paidNow").innerHTML = subLine(c.sub);
+  $("paidPlans").innerHTML = Object.keys(PLANS).map(function (k) {
+    return '<label><input type="radio" name="plan" value="' + k + '"' + (k === cur ? " checked" : "") + "> " + PLANS[k].label + " " + rupees(PLANS[k].price) + " per " + PLANS[k].per + "</label>";
+  }).join("");
+  suggestDate();
+  $("removePlan").hidden = !c.sub;
+  $("paidErr").hidden = true;
+  $("dlgPaid").showModal();
+}
+$("paidPlans").addEventListener("change", function () { if (!dateTouched) suggestDate(); });
+$("pDate").addEventListener("input", function () { dateTouched = true; });
+$("cancelPaid").addEventListener("click", function () { $("dlgPaid").close(); });
+$("fPaid").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("paidErr").hidden = true;
+  var until = fromInput($("pDate").value);
+  if (!until) return formErr("paidErr", "Pick the paid-until date.");
+  var plan = chosenPlan();
+  var sub = { plan: plan, paidUntil: until, paidOn: Date.now(), amount: PLANS[plan].price };
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: sub }), "Saved. Due date is " + fmtDate(until))) $("dlgPaid").close();
+});
+$("removePlan").addEventListener("click", async function () {
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: null }), "Plan removed. Menu will not switch off")) $("dlgPaid").close();
 });
 
 // ---------- owners
@@ -305,7 +390,7 @@ $("aName").addEventListener("input", function () { if (!idTouched) $("aId").valu
 $("aId").addEventListener("input", function () { idTouched = true; });
 $("addCafe").addEventListener("click", function () {
   idTouched = false;
-  $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty";
+  $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty"; $("aPlan").value = "none";
   $("cafeErr").hidden = true;
   $("dlgCafe").showModal();
 });
@@ -328,7 +413,9 @@ $("fCafe").addEventListener("submit", async function (e) {
     var sample = $("aStart").value === "sample";
     var cats = sample ? SAMPLE.categories : [{ id: "starters", name: "Starters", blurb: "" }];
     var b = fs.writeBatch(db);
-    b.set(fs.doc(db, "restaurants", id), { name: name, tagline: "", categories: cats, links: { instagram: "", whatsapp: "", review: "" } });
+    var planKey = $("aPlan").value;
+    var sub = PLANS[planKey] ? { plan: planKey, paidUntil: nextDue(null, planKey), paidOn: Date.now(), amount: PLANS[planKey].price } : null;
+    b.set(fs.doc(db, "restaurants", id), { name: name, tagline: "", categories: cats, links: { instagram: "", whatsapp: "", review: "" }, theme: null, sub: sub });
     b.set(fs.doc(db, "owners", id), { emails: list });
     if (sample) {
       SAMPLE.items.forEach(function (it, i) {

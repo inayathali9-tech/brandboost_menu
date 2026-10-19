@@ -128,6 +128,51 @@ main { padding-block: 18px 40px; display: flex; flex-direction: column; gap: 22p
 .sw input:checked + .trk::after { transform: translateX(18px); }
 .add { align-self: flex-start; margin-top: 4px; }
 
+/* Plan status, payment and colours */
+.banner { border-radius: 14px; padding: 12px 14px; font-weight: 600; font-size: 0.92rem; border: 1.5px solid; }
+.banner.soon, .banner.grace { background: #FFF0C9; border-color: #E0A800; color: #4A3300; }
+.banner.locked { background: #FFE1DC; border-color: #B5200F; color: #5A0F07; }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; margin-right: 8px; }
+.pill.active { background: #D9F2DF; color: #14532A; }
+.pill.grace { background: #FFF0C9; color: #4A3300; }
+.pill.locked { background: #FFE1DC; color: #5A0F07; }
+.pill.none { background: var(--line); color: var(--ink); }
+.plans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.plan { border: 1.5px solid var(--line); border-radius: 14px; padding: 12px; background: var(--field); display: flex; flex-direction: column; gap: 2px; }
+.plan.best { border-color: var(--saffron); }
+.plan .pl { font-weight: 700; font-size: 0.88rem; }
+.plan b { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; line-height: 1.1; }
+.plan .save { font-size: 0.78rem; font-weight: 700; color: var(--ok); }
+.pay { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.qr { width: 176px; height: 176px; flex: none; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; }
+.pay .info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 10px; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.upi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
+.upi code { font-size: 0.9rem; background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; user-select: all; }
+
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.preset { font: inherit; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; min-height: 40px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--field); color: var(--ink); cursor: pointer; }
+.preset[aria-pressed="true"] { border-color: var(--ink); }
+.preset:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+.dots { display: inline-flex; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.2); margin-left: -4px; }
+.dots i:first-child { margin-left: 0; }
+.colors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+input[type="color"] { padding: 4px; cursor: pointer; }
+.pv { border-radius: 16px; overflow: hidden; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); }
+.pv-top { background: var(--bar); color: var(--on-bar); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.pv-eye { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--saffron); }
+.pv-top b { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; line-height: 1.1; overflow-wrap: anywhere; }
+.pv-tabs { background: var(--bar); border-top: 1px solid var(--chip-line); padding: 8px 16px; display: flex; gap: 8px; }
+.pv-tab { font-size: 0.8rem; font-weight: 600; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--chip-line); color: var(--on-bar); }
+.pv-tab.on { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.pv-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+.pv-h { font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; }
+.pv-item { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 3px; }
+.pv-item small { color: var(--muted); font-size: 0.82rem; }
+.pv-tag { align-self: flex-start; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--saffron); color: var(--on-saffron); }
+.pv-price { font-family: var(--font-display); font-weight: 800; color: var(--price); }
+
 /* Dialog sheets */
 dialog {
   width: min(92vw, 520px); max-height: 90vh; padding: 0;
@@ -195,6 +240,8 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
       <p class="muted">This cafe has not been created yet. Contact Brand Boost Studio at brandbooststudio110@gmail.com to get started.</p>
     </section>
 
+    <section id="subBanner" class="banner" role="status" hidden style="order:-2"></section>
+
     <div id="panel" class="stack" hidden>
       <section class="card">
         <h2 class="sec-title">Restaurant</h2>
@@ -212,9 +259,35 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
         <button id="saveR" class="btn primary" type="button" style="align-self:flex-start">Save details</button>
       </section>
 
+      <section class="card" id="appearance">
+        <h2 class="sec-title">Colors</h2>
+        <p class="muted">Pick a ready-made set, or choose your own three colors. Text colors adjust by themselves so everything stays easy to read.</p>
+        <div class="presets" id="presets"></div>
+        <div class="colors">
+          <div><label for="cBar">Header</label><input id="cBar" type="color" value="#8E1409"></div>
+          <div><label for="cAcc">Accent</label><input id="cAcc" type="color" value="#F4A300"></div>
+          <div><label for="cBg">Background</label><input id="cBg" type="color" value="#FFF1DC"></div>
+        </div>
+        <div class="pv" id="pv" aria-hidden="true">
+          <div class="pv-top"><span class="pv-eye">Menu</span><b id="pvName">Your restaurant</b></div>
+          <div class="pv-tabs"><span class="pv-tab on">Mains</span><span class="pv-tab">Drinks</span></div>
+          <div class="pv-body">
+            <span class="pv-h">Mains</span>
+            <div class="pv-item"><b>Chicken Mandi</b><span class="pv-tag">Bestseller</span><small>Slow cooked rice with tender chicken</small><span class="pv-price">₹249</span></div>
+          </div>
+        </div>
+        <p id="themeWarn" class="err" role="alert" hidden></p>
+        <div class="btns" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="saveTheme" class="btn primary" type="button">Save colors</button>
+          <button id="resetTheme" class="btn ghost" type="button">Back to default</button>
+        </div>
+      </section>
+
       <div id="cats" class="stack"></div>
       <button id="addCat" class="btn" type="button" style="align-self:flex-start">+ Add category</button>
     </div>
+
+    <section id="subCard" class="card" hidden></section>
   </main>
 
   <footer class="wrap">Powered by Brand Boost Studio. Need help? brandbooststudio110@gmail.com</footer>
@@ -276,6 +349,7 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
+import { PLANS, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -338,7 +412,7 @@ function onUser(u) {
   unsubs.forEach(function (f) { f(); });
   unsubs = [];
   ready.r = ready.i = false;
-  restaurant = null; items = [];
+  restaurant = null; items = []; themeDirty = false;
   if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID + "&fresh=1"; subscribe(); }
 }
 $("fLogin").addEventListener("submit", async function (e) {
@@ -378,8 +452,13 @@ function draw() {
   if (!user || !ready.r || !ready.i) return;
   var has = !!restaurant;
   $("setup").hidden = has;
-  $("panel").hidden = !has;
-  if (!has) return;
+  if (!has) { $("panel").hidden = true; $("subCard").hidden = true; $("subBanner").hidden = true; return; }
+  var st = subStatus(restaurant.sub);
+  drawSub(st);
+  $("panel").hidden = st.state === "locked";   // a switched-off cafe only sees how to pay
+  if (st.state === "locked") return;
+  if (!themeDirty) setPickers(validTheme(restaurant.theme) || DEFAULT_THEME);
+  else drawPreview();
   if (document.activeElement !== $("rName")) $("rName").value = restaurant.name || "";
   if (document.activeElement !== $("rTag")) $("rTag").value = restaurant.tagline || "";
   var lk = restaurant.links || {};
@@ -407,6 +486,105 @@ function draw() {
   }).join("");
   $("cats").innerHTML = html;
 }
+
+// ---------- plan status and payment
+function days(n) { return n + (n === 1 ? " day" : " days"); }
+function drawSub(st) {
+  var b = $("subBanner"), card = $("subCard");
+  var pill, line, bannerText = "", bannerCls = "";
+  if (st.state === "active") {
+    pill = '<span class="pill active">Active</span>';
+    line = "Paid until " + fmtDate(st.due) + " (" + days(st.daysLeft) + " left).";
+    if (st.daysLeft <= 7) { bannerText = "Your plan is due on " + fmtDate(st.due) + " (" + days(st.daysLeft) + " left). Details are below."; bannerCls = "soon"; }
+  } else if (st.state === "grace") {
+    pill = '<span class="pill grace">Payment due</span>';
+    line = "Payment was due on " + fmtDate(st.due) + ". Your menu stays on until " + fmtDate(st.lockAt) + ", then it switches off.";
+    bannerText = "Payment due. Your menu switches off after " + fmtDate(st.lockAt) + ". Please pay below.";
+    bannerCls = "grace";
+  } else if (st.state === "locked") {
+    pill = '<span class="pill locked">Switched off</span>';
+    line = "Payment was due on " + fmtDate(st.due) + ". Pay and send the screenshot to switch your menu back on.";
+    bannerText = "Your menu is switched off. Pay below to switch it back on.";
+    bannerCls = "locked";
+  } else {
+    pill = '<span class="pill none">No plan yet</span>';
+    line = "Your plan has not started. Pay below to start it.";
+  }
+  b.hidden = !bannerText;
+  b.className = "banner " + bannerCls;
+  b.textContent = bannerText;
+  var urgent = st.state === "grace" || st.state === "locked" || (st.state === "active" && st.daysLeft <= 7);
+  card.style.order = urgent ? "-1" : "1";
+  card.hidden = false;
+  var m = PLANS.monthly, y = PLANS.yearly;
+  var saving = m.price * 12 - y.price;
+  var last = restaurant.sub && restaurant.sub.paidOn ? '<p class="muted">Last payment noted: ' + fmtDate(restaurant.sub.paidOn) + ".</p>" : "";
+  var wa = "https://wa.me/" + PAY_WHATSAPP + "?text=" + encodeURIComponent("Hi Brand Boost Studio, I have paid for the menu of " + (restaurant.name || RID) + " (" + RID + "). Screenshot attached.");
+  card.innerHTML =
+    '<h2 class="sec-title">Subscription</h2>' +
+    "<p>" + pill + esc(line) + "</p>" + last +
+    '<div class="plans">' +
+      '<div class="plan"><span class="pl">' + m.label + "</span><b>₹" + m.price.toLocaleString("en-IN") + '</b><span class="muted">per ' + m.per + "</span></div>" +
+      '<div class="plan best"><span class="pl">' + y.label + "</span><b>₹" + y.price.toLocaleString("en-IN") + '</b><span class="save">Save ₹' + saving.toLocaleString("en-IN") + " a year</span></div>" +
+    "</div>" +
+    '<div class="pay">' +
+      '<img class="qr" src="fampay-qr.png" alt="UPI QR code for ' + UPI_ID + '" width="176" height="176">' +
+      '<div class="info">' +
+        '<ol class="steps">' +
+          "<li>Scan the code with any UPI app. Pay ₹" + m.price + " for monthly or ₹" + y.price.toLocaleString("en-IN") + " for yearly.</li>" +
+          "<li>Send the payment screenshot to Brand Boost Studio on WhatsApp.</li>" +
+          "<li>We mark it paid in our panel and your plan carries on.</li>" +
+        "</ol>" +
+        '<div class="upi">UPI ID <code>' + UPI_ID + '</code><button class="btn small" type="button" data-act="copyupi">Copy</button></div>' +
+        '<a class="btn primary" href="' + esc(wa) + '" target="_blank" rel="noopener" style="align-self:flex-start">Send screenshot on WhatsApp</a>' +
+      "</div>" +
+    "</div>" +
+    '<p class="muted">After the due date you get ' + GRACE_DAYS + " extra days before the menu switches off.</p>";
+}
+$("subCard").addEventListener("click", async function (e) {
+  if (!e.target.closest('[data-act="copyupi"]')) return;
+  try { await navigator.clipboard.writeText(UPI_ID); toast("UPI ID copied"); } catch (x) { toast(UPI_ID); }
+});
+
+// ---------- colours
+var themeDirty = false;
+function readPickers() { return { bar: $("cBar").value, accent: $("cAcc").value, bg: $("cBg").value }; }
+function setPickers(t) {
+  $("cBar").value = t.bar.toLowerCase(); $("cAcc").value = t.accent.toLowerCase(); $("cBg").value = t.bg.toLowerCase();
+  drawPreview();
+}
+function drawPreview() {
+  var t = validTheme(readPickers());
+  if (!t) return;
+  applyTheme($("pv"), t, null);
+  $("pvName").textContent = (restaurant && restaurant.name) || "Your restaurant";
+  var warn = $("themeWarn");
+  if (contrast(t.accent, t.bar) < 2.5) {
+    warn.textContent = "The accent and header colors are very close, so the selected category may be hard to see. Try a lighter or darker accent.";
+    warn.hidden = false;
+  } else warn.hidden = true;
+  $("presets").innerHTML = PRESETS.map(function (p, i) {
+    var on = p.bar.toUpperCase() === t.bar && p.accent.toUpperCase() === t.accent && p.bg.toUpperCase() === t.bg;
+    return '<button type="button" class="preset" data-i="' + i + '" aria-pressed="' + on + '"><span class="dots"><i style="background:' + p.bar + '"></i><i style="background:' + p.accent + '"></i><i style="background:' + p.bg + '"></i></span>' + esc(p.name) + "</button>";
+  }).join("");
+}
+["cBar", "cAcc", "cBg"].forEach(function (id) {
+  $(id).addEventListener("input", function () { themeDirty = true; drawPreview(); });
+});
+$("presets").addEventListener("click", function (e) {
+  var b = e.target.closest(".preset");
+  if (!b) return;
+  themeDirty = true;
+  setPickers(PRESETS[+b.dataset.i]);
+});
+$("saveTheme").addEventListener("click", async function () {
+  var t = validTheme(readPickers());
+  if (!t) { toast("Pick all three colors.", true); return; }
+  if (await run(F.fs.updateDoc(rRef(), { theme: t }), "Colors saved")) themeDirty = false;
+});
+$("resetTheme").addEventListener("click", async function () {
+  if (await run(F.fs.updateDoc(rRef(), { theme: null }), "Back to the default colors")) { themeDirty = false; setPickers(DEFAULT_THEME); }
+});
 
 $("cats").addEventListener("click", function (e) {
   var b = e.target.closest("[data-act]");

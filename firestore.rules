@@ -2,24 +2,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Only these logins can change a menu. Use lowercase emails.
-    // Replace the two example emails with your own and your client's.
-    function isOwner() {
+    // Your own login(s). Only these can create cafes, set who owns them and mark them paid.
+    // Replace the example with your agency login email, in lowercase.
+    function isAgency() {
       return request.auth != null
         && request.auth.token.email in [
-          'you@example.com',
-          'client@example.com'
+          'you@example.com'
         ];
     }
 
-    // Anyone can read a menu. Only the logins above can edit it.
+    // True when the logged-in email is listed as an owner of this cafe.
+    function isCafeOwner(rid) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/owners/$(rid))
+        && request.auth.token.email in get(/databases/$(database)/documents/owners/$(rid)).data.emails;
+    }
+
+    // Owner emails for each cafe. Private: only the agency can see or change them.
+    match /owners/{rid} {
+      allow read, write: if isAgency();
+    }
+
+    // Anyone can read a menu. Only the agency can create or delete a cafe.
+    // A cafe's owners can edit that cafe only, and can never change its plan ("sub"),
+    // so a cafe cannot extend its own due date.
     match /restaurants/{rid} {
       allow read: if true;
-      allow write: if isOwner();
+      allow create, delete: if isAgency();
+      allow update: if isAgency()
+        || (isCafeOwner(rid)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sub']));
 
       match /items/{itemId} {
         allow read: if true;
-        allow write: if isOwner();
+        allow write: if isAgency() || isCafeOwner(rid);
       }
     }
   }
