@@ -233,7 +233,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
-import { isPremium, subStatus, rupees, normPhone, orderCode, fmtTime, safeImg, cleanTable, PAY_WHATSAPP } from "./shared.js";
+import { isPremium, subStatus, rupees, normPhone, orderCode, fmtTime, safeImg, cleanTable, PAY_WHATSAPP, stampState } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -281,6 +281,13 @@ function ago(t) {
   if (m < 60) return m + " min ago";
   var h = Math.floor(m / 60);
   return h + (h === 1 ? " hour ago" : " hours ago");
+}
+function stampDays() { return Number(rest && rest.loyalty && rest.loyalty.days) || 0; }
+// One more stamp. If the customer's old stamps have expired, the count starts again at 1.
+async function stampWrite(phone) {
+  var fs = F.fs, snap = await fs.getDoc(lRef(phone));
+  var st = stampState(snap.exists() ? snap.data() : null, stampDays());
+  return { phone: phone, stamps: st.expired ? 1 : fs.increment(1), updatedAt: fs.serverTimestamp() };
 }
 function loyaltyOn() { return !!(rest && rest.loyalty && rest.loyalty.on && rest.loyalty.goal >= 2); }
 
@@ -378,7 +385,7 @@ function draw() {
   }
   $("gate").hidden = true; $("work").hidden = false;
   drawOrders(); drawPos(); $("stampInfo").textContent = loyaltyOn()
-    ? "A stamp is added automatically when you mark an order paid and it has a mobile number. " + rest.loyalty.goal + " stamps = " + (rest.loyalty.reward || "a reward") + "."
+    ? "A stamp is added automatically when you mark an order paid and it has a mobile number. " + rest.loyalty.goal + " stamps = " + (rest.loyalty.reward || "a reward") + "." + (stampDays() ? " Stamps expire after " + stampDays() + " days without a new stamp." : "")
     : "Loyalty stamps are switched off. Turn them on in your menu panel.";
 }
 
@@ -446,7 +453,8 @@ async function setStatus(o, status) {
     var phone = normPhone(o.phone);
     if (loyaltyOn() && phone && !o.stamped) {
       data.stamped = true;
-      var l = { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() };
+      var l;
+      try { l = await stampWrite(phone); } catch (x) { l = { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }; }
       b.set(lRef(phone), l, { merge: true });
     }
     b.update(oRef(o.id), data);
@@ -523,7 +531,11 @@ async function placeStaff(print) {
   if (paid) data.paidAt = fs.serverTimestamp();
   var b = fs.writeBatch(F.db);
   b.set(ref, data);
-  if (stamp) { var l = { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }; b.set(lRef(phone), l, { merge: true }); }
+  if (stamp) {
+    var l;
+    try { l = await stampWrite(phone); } catch (x) { l = { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }; }
+    b.set(lRef(phone), l, { merge: true });
+  }
   if (await run(b.commit(), "Order placed")) {
     var copy = Object.assign({}, data, { id: ref.id, createdAt: { toMillis: function () { return Date.now(); } } });
     clearPos();
@@ -565,9 +577,9 @@ async function showCustomer(phone) {
   out.innerHTML = '<p class="muted">Looking up...</p>';
   try {
     var snap = await F.fs.getDoc(lRef(phone)), d = snap.exists() ? snap.data() : { stamps: 0, redeemed: 0 };
-    var n = Number(d.stamps) || 0, g = lo.goal, html = '<div class="found"><p><b>' + esc(phone) + "</b>" + '</p><div class="stamps">';
+    var st = stampState(d, stampDays()), n = st.n, g = lo.goal, html = '<div class="found"><p><b>' + esc(phone) + "</b>" + '</p><div class="stamps">';
     for (var i = 0; i < g; i++) html += '<i class="' + (i < Math.min(n, g) ? "on" : "") + '"></i>';
-    html += "</div><p><b>" + n + " of " + g + "</b> stamps · " + (Number(d.redeemed) || 0) + ' rewards given</p><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    html += "</div><p><b>" + n + " of " + g + "</b> stamps" + (st.expired ? " (" + st.lost + " old stamps expired)" : (st.until ? ", valid until " + new Date(st.until).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "")) + " · " + (Number(d.redeemed) || 0) + ' rewards given</p><div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<button class="btn" data-s="add" data-p="' + esc(phone) + '">Add 1 stamp</button>' +
       (n >= g ? '<button class="btn primary" data-s="redeem" data-p="' + esc(phone) + '">Give reward: ' + esc(lo.reward || "reward") + "</button>" : "") + "</div></div>";
     out.innerHTML = html;
@@ -577,7 +589,7 @@ $("stampOut").addEventListener("click", async function (e) {
   var b = e.target.closest("[data-s]"); if (!b) return;
   var phone = b.dataset.p, fs = F.fs, lo = rest.loyalty;
   var data = b.dataset.s === "add"
-    ? { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }
+    ? await stampWrite(phone).catch(function () { return { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }; })
     : { phone: phone, stamps: fs.increment(-lo.goal), redeemed: fs.increment(1), updatedAt: fs.serverTimestamp() };
   if (await run(fs.setDoc(lRef(phone), data, { merge: true }), b.dataset.s === "add" ? "Stamp added" : "Reward given")) showCustomer(phone);
 });
@@ -588,7 +600,7 @@ $("loadCust").addEventListener("click", async function () {
     var q = fs.query(fs.collection(F.db, "restaurants", RID, "loyalty"), fs.orderBy("stamps", "desc"), fs.limit(200));
     var s = await fs.getDocs(q);
     out.innerHTML = s.docs.length ? "<table><thead><tr><th>Mobile</th><th>Stamps</th><th>Rewards</th></tr></thead><tbody>" + s.docs.map(function (d) {
-      var x = d.data(); return "<tr><td>" + esc(d.id) + "</td><td>" + (Number(x.stamps) || 0) + "</td><td>" + (Number(x.redeemed) || 0) + "</td></tr>";
+      var x = d.data(), st = stampState(x, stampDays()); return "<tr><td>" + esc(d.id) + "</td><td>" + st.n + (st.expired ? " (expired)" : "") + "</td><td>" + (Number(x.redeemed) || 0) + "</td></tr>";
     }).join("") + "</tbody></table>" : '<p class="muted">No customers yet.</p>';
   } catch (x) { out.innerHTML = '<p class="err">' + esc(friendly(x)) + "</p>"; }
 });

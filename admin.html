@@ -303,6 +303,8 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
               <div><label for="oGoal">Stamps for a reward</label><input id="oGoal" type="number" min="2" max="30" inputmode="numeric"></div>
               <div><label for="oReward">Reward</label><input id="oReward" maxlength="40" placeholder="Free coffee"></div>
             </div>
+            <div style="max-width:260px"><label for="oDays">Stamps expire after (days)</label><input id="oDays" type="number" min="0" max="365" inputmode="numeric" placeholder="0 = never"></div>
+            <p class="muted" style="margin:0">If a customer has no new stamp for this many days, their stamps reset to zero. Enter 0 so stamps never expire.</p>
           </fieldset>
           <fieldset>
             <legend>Photo slider at the top of your menu</legend>
@@ -368,18 +370,6 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
       <div id="priceRows" class="stack" style="gap:8px"></div>
       <button id="addPrice" class="btn small ghost" type="button" style="align-self:flex-start">+ Add another size</button>
     </fieldset>
-    <fieldset>
-      <legend>Photo</legend>
-      <div class="photoRow">
-        <div id="photoPrev" class="thumb">No photo</div>
-        <div class="stack">
-          <label class="btn small" for="iFile" style="margin:0">Upload photo</label>
-          <input id="iFile" type="file" accept="image/*" hidden>
-          <button id="rmPhoto" class="btn small ghost" type="button">Remove photo</button>
-        </div>
-      </div>
-      <div><label for="iUrl">Or paste a photo link</label><input id="iUrl" type="url" inputmode="url" placeholder="https://"></div>
-    </fieldset>
     <p id="itemErr" class="err" role="alert" hidden></p>
     <div class="actions">
       <button id="delItem" class="btn danger" type="button">Delete</button>
@@ -395,6 +385,13 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
     <h2 id="catTitle">Category</h2>
     <div><label for="cName">Category name</label><input id="cName" maxlength="40"></div>
     <div><label for="cBlurb">Short line under the name (optional)</label><input id="cBlurb" maxlength="100"></div>
+    <fieldset>
+      <legend>Category photos (1 to 3)</legend>
+      <div id="catPhotos" class="stack" style="gap:10px"></div>
+      <button id="addCatPhoto" class="btn small ghost" type="button" style="align-self:flex-start">+ Add photo</button>
+      <input id="cFile" type="file" accept="image/*" hidden>
+      <p class="muted" style="margin:0">These show at the top of the category. Dishes do not have their own photos.</p>
+    </fieldset>
     <p id="catErr" class="err" role="alert" hidden></p>
     <div class="actions">
       <button id="delCat" class="btn danger" type="button">Delete</button>
@@ -423,7 +420,7 @@ function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").re
 var F = null, user = null, restaurant = null, items = [];
 var ready = { r: false, i: false };
 var unsubs = [];
-var editing = null, prices = [], photo = "", catEditing = null, delTimer = null;
+var editing = null, prices = [], catEditing = null, delTimer = null, catPics = [], picSlot = -1;
 
 // ---------- helpers
 function toast(msg, bad) {
@@ -530,18 +527,14 @@ function draw() {
   var html = cats.map(function (c) {
     var list = items.filter(function (it) { return it.cat === c.id; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     var rows = list.map(function (it) {
-      var thumb = it.img && /^(https:\/\/|data:image\/)/i.test(it.img)
-        ? '<img src="' + esc(it.img) + '" alt="">'
-        : esc((it.n || "?").charAt(0).toUpperCase());
       return '<div class="row' + (it.sold ? " off" : "") + '">' +
-        '<div class="thumb">' + thumb + "</div>" +
         '<div class="rinfo"><b>' + esc(it.n) + "</b><span>" + esc(priceText(it)) + "</span></div>" +
         '<label class="sw"><input type="checkbox" data-act="avail" data-id="' + esc(it.id) + '"' + (it.sold ? "" : " checked") + '><span class="trk"></span>Available</label>' +
         '<button class="btn small" type="button" data-act="edit" data-id="' + esc(it.id) + '">Edit</button>' +
       "</div>";
     }).join("");
     return '<section class="cat"><div class="cat-head"><h2>' + esc(c.name) + '</h2>' +
-      '<button class="btn small ghost" type="button" data-act="editcat" data-id="' + esc(c.id) + '">Rename</button></div>' +
+      '<button class="btn small ghost" type="button" data-act="editcat" data-id="' + esc(c.id) + '">Edit</button></div>' +
       '<div class="rows">' + (rows || '<p class="muted" style="padding-block:10px">No dishes yet.</p>') + "</div>" +
       '<button class="btn add" type="button" data-act="add" data-cat="' + esc(c.id) + '">+ Add dish</button></section>';
   }).join("");
@@ -687,6 +680,7 @@ function drawPrem() {
   $("oLoy").checked = !!lo.on;
   $("oGoal").value = lo.goal || 10;
   $("oReward").value = lo.reward || "";
+  $("oDays").value = lo.days || 0;
   slides = (restaurant.slides || []).map(function (x) { return { img: x.img || "", title: x.title || "", sub: x.sub || "" }; });
   drawSlides();
 }
@@ -728,9 +722,11 @@ $("savePrem").addEventListener("click", async function () {
   var on = $("oLoy").checked, goal = parseInt($("oGoal").value, 10), reward = $("oReward").value.trim();
   if (on && !(goal >= 2 && goal <= 30)) return formErr("premErr", "Stamps for a reward must be between 2 and 30.");
   if (on && !reward) return formErr("premErr", "Enter the reward, like Free coffee.");
+  var days = parseInt($("oDays").value, 10) || 0;
+  if (days < 0 || days > 365) return formErr("premErr", "Stamp expiry must be between 0 and 365 days.");
   if (slides.some(function (s) { return !safeImg(s.img); })) return formErr("premErr", "Add a photo to every slide, or remove the empty slide.");
   var sl = slides.map(function (s) { return { img: s.img, title: String(s.title || "").trim(), sub: String(s.sub || "").trim() }; });
-  if (await run(F.fs.updateDoc(rRef(), { ordering: $("oOrd").checked, tables: tables, loyalty: { on: on, goal: goal >= 2 ? goal : 10, reward: reward }, slides: sl }), "Saved")) premDirty = false;
+  if (await run(F.fs.updateDoc(rRef(), { ordering: $("oOrd").checked, tables: tables, loyalty: { on: on, goal: goal >= 2 ? goal : 10, reward: reward, days: days }, slides: sl }), "Saved")) premDirty = false;
 });
 
 $("cats").addEventListener("click", function (e) {
@@ -778,41 +774,6 @@ $("priceRows").addEventListener("click", function (e) {
 });
 $("addPrice").addEventListener("click", function () { prices.push({ l: "", v: "" }); renderPrices(); });
 
-function currentImg() { return $("iUrl").value.trim() || photo; }
-function showPrev() {
-  var u = currentImg();
-  $("photoPrev").innerHTML = u ? '<img alt="" src="' + esc(u) + '">' : "No photo";
-}
-$("iUrl").addEventListener("input", showPrev);
-$("rmPhoto").addEventListener("click", function () { photo = ""; $("iUrl").value = ""; showPrev(); });
-$("iFile").addEventListener("change", async function () {
-  var f = this.files && this.files[0];
-  this.value = "";
-  if (!f) return;
-  try { photo = await compress(f); $("iUrl").value = ""; showPrev(); }
-  catch (e) { formErr("itemErr", "Could not read that photo. Try a different one."); }
-});
-
-// Crops to a square and shrinks, so many photos fit comfortably in the free database.
-async function compress(file) {
-  var bmp;
-  try { bmp = await createImageBitmap(file); }
-  catch (e) {
-    bmp = await new Promise(function (res, rej) {
-      var img = new Image();
-      img.onload = function () { res(img); };
-      img.onerror = rej;
-      img.src = URL.createObjectURL(file);
-    });
-  }
-  var w = bmp.width, h = bmp.height, side = Math.min(w, h);
-  var c = document.createElement("canvas");
-  c.width = c.height = 400;
-  c.getContext("2d").drawImage(bmp, (w - side) / 2, (h - side) / 2, side, side, 0, 0, 400, 400);
-  var q = 0.78, out = c.toDataURL("image/jpeg", q);
-  while (out.length > 120000 && q > 0.4) { q -= 0.1; out = c.toDataURL("image/jpeg", q); }
-  return out;
-}
 function formErr(id, msg) { var e = $(id); e.textContent = msg; e.hidden = false; }
 
 function openItem(id, cat) {
@@ -827,9 +788,7 @@ function openItem(id, cat) {
   $("iDesc").value = it ? (it.d || "") : "";
   $("iTag").value = it ? (it.t || "") : "";
   prices = it && it.p && it.p.length ? it.p.map(function (x) { return { l: x.l || "", v: x.v }; }) : [{ l: "", v: "" }];
-  photo = ""; $("iUrl").value = "";
-  if (it && it.img) { if (/^data:/.test(it.img)) photo = it.img; else $("iUrl").value = it.img; }
-  renderPrices(); showPrev();
+  renderPrices();
   $("itemErr").hidden = true;
   $("delItem").hidden = !it;
   resetDel();
@@ -855,11 +814,9 @@ $("fItem").addEventListener("submit", async function (e) {
     return { l: String(x.l || "").trim(), v: Number(String(x.v).replace(/[^0-9.]/g, "")) };
   }).filter(function (x) { return x.v > 0; });
   if (!p.length) return formErr("itemErr", "Add at least one price.");
-  var img = currentImg();
-  if (img && !/^(https:\/\/|data:image\/)/i.test(img)) return formErr("itemErr", "The photo link must start with https://");
   var old = editing.id ? items.filter(function (x) { return x.id === editing.id; })[0] : null;
   var order = old ? (old.order || 0) : items.reduce(function (m, o) { return Math.max(m, o.order || 0); }, -1) + 1;
-  var data = { cat: $("iCat").value, n: n, d: $("iDesc").value.trim(), p: p, t: $("iTag").value, img: img, sold: old ? !!old.sold : false, order: order };
+  var data = { cat: $("iCat").value, n: n, d: $("iDesc").value.trim(), p: p, t: $("iTag").value, sold: old ? !!old.sold : false, order: order };
   var ref = editing.id ? dRef(editing.id) : F.fs.doc(F.fs.collection(F.db, "restaurants", RID, "items"));
   if (await run(F.fs.setDoc(ref, data), "Saved")) $("dlgItem").close();
 });
@@ -868,13 +825,39 @@ $("fItem").addEventListener("submit", async function (e) {
 function openCat(id) {
   var c = id ? (restaurant.categories || []).filter(function (x) { return x.id === id; })[0] : null;
   catEditing = id || null;
-  $("catTitle").textContent = c ? "Rename category" : "Add category";
+  $("catTitle").textContent = c ? "Edit category" : "Add category";
   $("cName").value = c ? c.name : "";
   $("cBlurb").value = c ? (c.blurb || "") : "";
+  catPics = c && c.photos ? c.photos.filter(function (u) { return safeImg(u); }).slice(0, 3) : [];
+  drawCatPics();
   $("catErr").hidden = true;
   $("delCat").hidden = !c;
   $("dlgCat").showModal();
 }
+function drawCatPics() {
+  $("catPhotos").innerHTML = catPics.map(function (u, i) {
+    return '<div class="photoRow"><div class="thumb"><img alt="" src="' + esc(u) + '"></div>' +
+      '<div class="stack"><label class="btn small" for="cFile" data-slot="' + i + '" style="margin:0">Change photo</label>' +
+      '<button class="btn small ghost" type="button" data-rm="' + i + '">Remove</button></div></div>';
+  }).join("");
+  $("addCatPhoto").hidden = catPics.length >= 3;
+}
+$("catPhotos").addEventListener("click", function (e) {
+  var l = e.target.closest("[data-slot]"), b = e.target.closest("[data-rm]");
+  if (l) picSlot = +l.dataset.slot;
+  if (b) { catPics.splice(+b.dataset.rm, 1); drawCatPics(); }
+});
+$("addCatPhoto").addEventListener("click", function () { picSlot = catPics.length; $("cFile").click(); });
+$("cFile").addEventListener("change", async function () {
+  var f = this.files && this.files[0];
+  this.value = "";
+  if (!f) return;
+  try {
+    var u = await shrinkPhoto(f, 480, 270, 28000);
+    if (picSlot >= 0 && picSlot < catPics.length) catPics[picSlot] = u; else if (catPics.length < 3) catPics.push(u);
+    drawCatPics();
+  } catch (err) { formErr("catErr", "Could not read that photo. Try a different one."); }
+});
 $("addCat").addEventListener("click", function () { openCat(null); });
 $("cancelCat").addEventListener("click", function () { $("dlgCat").close(); });
 $("delCat").addEventListener("click", async function () {
@@ -890,10 +873,12 @@ $("fCat").addEventListener("submit", async function (e) {
   var blurb = $("cBlurb").value.trim();
   var cats = (restaurant.categories || []).map(function (x) { return Object.assign({}, x); });
   if (catEditing) {
-    cats.forEach(function (x) { if (x.id === catEditing) { x.name = name; x.blurb = blurb; } });
+    cats.forEach(function (x) { if (x.id === catEditing) { x.name = name; x.blurb = blurb; x.photos = catPics.slice(); } });
   } else {
-    cats.push({ id: slug(name) + "-" + Math.random().toString(36).slice(2, 6), name: name, blurb: blurb });
+    cats.push({ id: slug(name) + "-" + Math.random().toString(36).slice(2, 6), name: name, blurb: blurb, photos: catPics.slice() });
   }
+  var size = JSON.stringify(cats).length + JSON.stringify(restaurant.slides || []).length + String(restaurant.logo || "").length;
+  if (size > 850000) return formErr("catErr", "Too many photos in the menu. Remove one from this or another category.");
   if (await run(F.fs.updateDoc(rRef(), { categories: cats }), "Saved")) $("dlgCat").close();
 });
 </script>

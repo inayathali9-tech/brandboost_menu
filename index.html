@@ -241,17 +241,14 @@ body.cartOn main { padding-bottom: 110px; }
 .step b { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
 .addb:focus-visible, .step button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
-/* Dish picture. Each category has a drawn illustration; give any dish a photo and it replaces it. */
-.tile {
-  flex: none;
-  width: 100px; height: 100px;
-  border-radius: 14px;
-  overflow: hidden;
-  display: grid; place-items: center;
-  background: linear-gradient(140deg, var(--ta), var(--tb));
-}
-.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tile svg { width: 100%; height: 100%; display: block; }
+/* Category photos: one to three pictures at the top of a category. Dishes themselves have no photos. */
+.catpics { display: grid; gap: 8px; margin: 2px 0 12px; }
+.catpics.n1 { grid-template-columns: 1fr; }
+.catpics.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.catpics.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.catpics > div { border-radius: 14px; overflow: hidden; background: var(--line); aspect-ratio: 16 / 9; }
+.catpics.n3 > div { aspect-ratio: 1 / 1; }
+.catpics img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* Footer */
 footer { background: var(--bar); color: var(--on-bar); }
@@ -268,7 +265,7 @@ body.cartOn footer .wrap { padding-bottom: 110px; }
 .locked h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; text-wrap: balance; }
 .locked p { color: var(--muted); max-width: 32ch; text-wrap: balance; }
 
-.item.sold .info, .item.sold .tile { opacity: 0.5; }
+.item.sold .info { opacity: 0.5; }
 .tag.out { background: var(--line); color: var(--muted); }
 
 .links { padding-block: 6px 30px; }
@@ -349,7 +346,6 @@ dialog.sheet::backdrop { background: rgba(20, 8, 4, 0.55); }
 .stamps i.on svg { display: block; }
 
 @media (min-width: 560px) {
-  .tile { width: 116px; height: 116px; }
   dialog.sheet { margin: auto; border-radius: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -429,7 +425,7 @@ dialog.sheet::backdrop { background: rgba(20, 8, 4, 0.55); }
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
-import { applyTheme, subStatus, rupees, isPremium, safeImg, normPhone, cleanTable, orderCode, lineTotal } from "./shared.js";
+import { applyTheme, subStatus, rupees, isPremium, safeImg, normPhone, cleanTable, orderCode, lineTotal, stampState } from "./shared.js";
 
 var ART = {
   mandi: '<svg viewBox="0 0 96 96" aria-hidden="true"><ellipse cx="48" cy="64" rx="42" ry="15" fill="#fff" fill-opacity="0.92"/><ellipse cx="48" cy="61" rx="33" ry="10" fill="#F2D9A0"/><path d="M20 60c4-26 52-26 56 0z" fill="#F3D48A"/><path d="M29 55c3-16 35-16 38 0z" fill="#F9E8B9"/><ellipse cx="38" cy="40" rx="12" ry="7.5" fill="#8A3F14" transform="rotate(-22 38 40)"/><ellipse cx="59" cy="38" rx="11" ry="7" fill="#A64F1B" transform="rotate(16 59 38)"/><ellipse cx="38" cy="38" rx="6" ry="2.5" fill="#C9743A" transform="rotate(-22 38 38)"/><circle cx="30" cy="57" r="2.2" fill="#2E7D32"/><circle cx="66" cy="56" r="2.2" fill="#2E7D32"/><circle cx="48" cy="50" r="2.4" fill="#D32F2F"/><circle cx="54" cy="53" r="1.8" fill="#7B3F12"/></svg>',
@@ -557,23 +553,27 @@ menuEl.addEventListener("click", function (e) {
 
 // ---------- menu drawing
 function itemHTML(it, cat, order) {
-  var src = safeImg(it.img);
-  var photo = src ? '<img src="' + esc(src) + '" alt="' + esc(it.n) + '" loading="lazy">' : (ART[cat.id] || GENERIC);
   var tag = it.sold ? '<span class="tag out">Sold out</span>' : (it.t ? '<span class="tag">' + esc(it.t) + "</span>" : "");
   var prices = (it.p || []).map(function (x, j) {
     var pr = '<span class="price">' + (x.l ? "<small>" + esc(x.l) + "</small>" : "") + rupees(x.v) + "</span>";
     if (!order || it.sold) return pr;
     return '<div class="pr">' + pr + '<span class="ctl" data-k="' + esc(it.id + "|" + j) + '">' + ctlHTML(it.id + "|" + j) + "</span></div>";
   }).join("");
-  var tile = cat.tile || DEFAULT_TILE;
   return '<article class="item' + (it.sold ? " sold" : "") + '">' +
     '<div class="info">' +
       '<div class="nameline"><h3>' + esc(it.n) + "</h3>" + tag + "</div>" +
       (it.d ? '<p class="desc">' + esc(it.d) + "</p>" : "") +
       '<div class="prices' + (order && !it.sold ? "" : " plain") + '">' + prices + "</div>" +
     "</div>" +
-    '<div class="tile" style="--ta:' + esc(tile[0]) + ";--tb:" + esc(tile[1]) + '">' + photo + "</div>" +
   "</article>";
+}
+
+function catPics(cat) {
+  var list = (cat.photos || []).map(safeImg).filter(Boolean).slice(0, 3);
+  if (!list.length) return "";
+  return '<div class="catpics n' + list.length + '">' + list.map(function (u) {
+    return '<div><img src="' + esc(u) + '" alt="" loading="lazy"></div>';
+  }).join("") + "</div>";
 }
 
 function ready() { document.documentElement.removeAttribute("data-state"); }
@@ -590,6 +590,7 @@ function drawMenu() {
     html += '<section class="sec" id="sec-' + esc(cat.id) + '" data-id="' + esc(cat.id) + '">' +
       '<div class="sec-head"><h2>' + esc(cat.name) + '</h2><span class="count">' + items.length + (items.length === 1 ? " dish" : " dishes") + "</span></div>" +
       (cat.blurb && !q ? '<p class="blurb">' + esc(cat.blurb) + "</p>" : "") +
+      (q ? "" : catPics(cat)) +
       items.map(function (it) { return itemHTML(it, cat, order); }).join("") +
     "</section>";
   });
@@ -614,7 +615,7 @@ function heroSlides() {
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); }).forEach(function (it) {
       if (out.length >= 4) return;
       var c = cats[it.cat] || {}, p = (it.p || [])[0];
-      out.push({ img: safeImg(it.img), art: ART[c.id] || GENERIC, tile: c.tile || null, title: it.n, sub: p ? "From " + rupees(p.v) : "Bestseller" });
+      out.push({ img: safeImg((c.photos || [])[0]), art: ART[c.id] || GENERIC, tile: c.tile || null, title: it.n, sub: p ? "From " + rupees(p.v) : "Bestseller" });
     });
   return out;
 }
@@ -650,7 +651,7 @@ function loyaltyOn() { return !!(D && isPremium(D) && D.loyalty && D.loyalty.on 
 function drawLoyalty() {
   $("loy").hidden = !loyaltyOn();
   if (!loyaltyOn()) return;
-  $("loyTx").innerHTML = "<b>Loyalty card</b>Collect " + esc(D.loyalty.goal) + " stamps and get " + esc(D.loyalty.reward || "a reward") + ".";
+  $("loyTx").innerHTML = "<b>Loyalty card</b>Collect " + esc(D.loyalty.goal) + " stamps and get " + esc(D.loyalty.reward || "a reward") + "." + (Number(D.loyalty.days) > 0 ? " Visit again within " + esc(D.loyalty.days) + " days of your last stamp to keep them." : "");
 }
 var dlgMode = "";
 $("loyBtn").addEventListener("click", function () {
@@ -665,10 +666,10 @@ async function checkStamps(phone) {
   try {
     F = F || await start({});
     var snap = await F.fs.getDoc(F.fs.doc(F.db, "restaurants", RID, "loyalty", phone));
-    var d = snap.exists() ? snap.data() : {}, n = Math.max(0, Number(d.stamps) || 0), h = "";
+    var d = snap.exists() ? snap.data() : {}, st = stampState(d, D.loyalty.days), n = st.n, h = "";
     for (var i = 0; i < g; i++) h += '<i class="' + (i < n ? "on" : "") + '">' + IC_STAMP + "</i>";
     out.innerHTML = '<div class="stamps">' + h + '</div><p style="text-align:center"><b>' + Math.min(n, g) + " of " + g + "</b> stamps" +
-      (n >= g ? ". You have earned " + esc(D.loyalty.reward || "a reward") + "! Show this to our staff." : ". " + (g - n) + " more for " + esc(D.loyalty.reward || "a reward") + ".") + "</p>";
+      (st.expired ? ". Your " + st.lost + " earlier stamps expired because there was no visit for " + esc(D.loyalty.days) + " days. Your next paid order starts a new card." : (n && st.until ? ". Valid until " + new Date(st.until).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "")) + (st.expired ? "" : n >= g ? ". You have earned " + esc(D.loyalty.reward || "a reward") + "! Show this to our staff." : ". " + (g - n) + " more for " + esc(D.loyalty.reward || "a reward") + ".") + "</p>";
   } catch (e) { out.innerHTML = '<p class="err">Could not check right now. Try again in a moment.</p>'; }
 }
 

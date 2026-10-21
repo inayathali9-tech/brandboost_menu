@@ -185,3 +185,15 @@ export async function shrinkPhoto(file, w, h, maxChars, opts) {
   while (out.length > maxChars && q > 0.35) { q -= 0.1; out = c.toDataURL("image/jpeg", q); }
   return out;
 }
+
+// Loyalty expiry. `days` is the cafe's setting (0 or empty = stamps never expire).
+// Stamps lapse when no stamp has been added for `days` days; the last stamp time is the doc's updatedAt.
+export function stampState(d, days) {
+  var n = Math.max(0, Number(d && d.stamps) || 0);
+  days = Number(days) || 0;
+  var at = d && d.updatedAt && d.updatedAt.toMillis ? d.updatedAt.toMillis() : 0;
+  if (!days || !at || !n) return { n: n, expired: false, lost: 0, until: null };
+  var until = at + days * 86400000;
+  if (Date.now() > until) return { n: 0, expired: true, lost: n, until: until };
+  return { n: n, expired: false, lost: 0, until: until };
+}
