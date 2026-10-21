@@ -2,11 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Your own login(s). Only these can create cafes, set who owns them and mark them paid.
+    // Your own login(s). Only these can create cafes, set owners, set a cafe's plan and tier.
     // Replace the example with your agency login email, in lowercase.
     function isAgency() {
       return request.auth != null
-        && request.auth.token.email in [
+        && request.auth.token.get('email', '') in [
           'you@example.com'
         ];
     }
@@ -15,7 +15,36 @@ service cloud.firestore {
     function isCafeOwner(rid) {
       return request.auth != null
         && exists(/databases/$(database)/documents/owners/$(rid))
-        && request.auth.token.email in get(/databases/$(database)/documents/owners/$(rid)).data.emails;
+        && request.auth.token.get('email', '') in get(/databases/$(database)/documents/owners/$(rid)).data.emails;
+    }
+
+    // Agency or one of the cafe's owners (they also run the reception panel).
+    function isStaff(rid) { return isAgency() || isCafeOwner(rid); }
+
+    // Customers may order only while the cafe is Premium, has ordering switched on, and its plan has not lapsed
+    // (paid-until plus the 3 grace days = 259200000 ms).
+    function orderingOpen(rid) {
+      let r = get(/databases/$(database)/documents/restaurants/$(rid)).data;
+      return r.get('tier', 'standard') == 'premium'
+        && r.get('ordering', true) == true
+        && (r.get('sub', null) == null || request.time.toMillis() <= r.sub.paidUntil + 259200000);
+    }
+
+    // What a customer is allowed to send when they place an order from their phone.
+    function validOrder(rid) {
+      let d = request.resource.data;
+      return request.auth != null
+        && d.keys().hasOnly(['uid', 'table', 'name', 'phone', 'note', 'items', 'total', 'status', 'source', 'paid', 'stamped', 'createdAt'])
+        && d.uid == request.auth.uid
+        && d.status == 'new' && d.source == 'customer' && d.paid == false && d.stamped == false
+        && d.items is list && d.items.size() > 0 && d.items.size() <= 40
+        && d.total is number && d.total > 0 && d.total < 100000
+        && d.table is string && d.table.size() > 0 && d.table.size() <= 12
+        && d.name is string && d.name.size() <= 40
+        && d.phone is string && d.phone.size() == 10
+        && d.note is string && d.note.size() <= 200
+        && d.createdAt == request.time
+        && orderingOpen(rid);
     }
 
     // Owner emails for each cafe. Private: only the agency can see or change them.
@@ -24,18 +53,34 @@ service cloud.firestore {
     }
 
     // Anyone can read a menu. Only the agency can create or delete a cafe.
-    // A cafe's owners can edit that cafe only, and can never change its plan ("sub"),
-    // so a cafe cannot extend its own due date.
+    // A cafe's owners can edit that cafe, but never its plan ("sub") or tier ("tier").
     match /restaurants/{rid} {
       allow read: if true;
       allow create, delete: if isAgency();
       allow update: if isAgency()
         || (isCafeOwner(rid)
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sub']));
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sub', 'tier']));
 
       match /items/{itemId} {
         allow read: if true;
-        allow write: if isAgency() || isCafeOwner(rid);
+        allow write: if isStaff(rid);
+      }
+
+      // Premium: orders. A customer can place an order and read only their own.
+      // Staff (owners and agency) see and manage every order of their cafe.
+      match /orders/{orderId} {
+        allow create: if isStaff(rid) || validOrder(rid);
+        allow get: if isStaff(rid) || (request.auth != null && resource.data.uid == request.auth.uid);
+        allow list: if isStaff(rid);
+        allow update, delete: if isStaff(rid);
+      }
+
+      // Premium: loyalty stamps, one document per phone number. A customer can look up their own count by number;
+      // only staff can list customers or change stamps.
+      match /loyalty/{phone} {
+        allow get: if true;
+        allow list: if isStaff(rid);
+        allow write: if isStaff(rid);
       }
     }
   }

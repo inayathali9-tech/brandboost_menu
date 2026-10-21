@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Orders and reception</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a red top bar, three tabs (Orders, New order, Stamps). Orders are cards grouped by stage: New, Preparing, Ready, then Done. Built for a phone, a tablet or a counter PC. The receipt is hidden until you print. */
+:root {
+  --bg: #FFF1DC; --surface: #FFF8EC; --ink: #2A160E; --muted: #7B5B4C; --line: #EBCFA9;
+  --bar: #8E1409; --on-bar: #FFF1DC; --price: #B5200F; --saffron: #F4A300; --on-saffron: #2A160E;
+  --ok: #1F8A3B; --bad: #B5200F; --field: #FFFDF8;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1D110B; --surface: #2A1912; --ink: #FBEAD3; --muted: #C9A892; --line: #4A3226; --bar: #5E1209; --price: #FF7A5C; --saffron: #FFB830; --ok: #4CC46B; --bad: #FF7A5C; --field: #231610; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+[hidden] { display: none !important; }
+h1, h2, h3, p, ul { margin: 0; }
+.wrap { max-width: 1100px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.btn { font: inherit; font-weight: 700; font-size: 0.95rem; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.btn.primary { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.danger { color: var(--bad); border-color: var(--bad); background: transparent; }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 38px; padding: 0 12px; font-size: 0.88rem; }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .tabbtn:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+label { display: block; font-weight: 600; font-size: 0.86rem; margin-bottom: 4px; }
+input, select, textarea { font: inherit; color: var(--ink); width: 100%; min-height: 44px; padding: 9px 12px; background: var(--field); border: 1.5px solid var(--line); border-radius: 10px; }
+textarea { resize: vertical; min-height: 60px; }
+.err { color: var(--bad); font-weight: 600; font-size: 0.9rem; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.center { min-height: 60vh; display: grid; place-items: center; color: var(--muted); }
+.card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.login { padding-block: 48px; max-width: 520px; }
+.login h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; letter-spacing: -0.02em; }
+
+.top { background: var(--bar); color: var(--on-bar); position: sticky; top: 0; z-index: 5; }
+.top .wrap { display: flex; align-items: center; gap: 10px; padding-block: 12px; flex-wrap: wrap; }
+.top .ttl { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; flex: 1; min-width: 0; }
+.top .who { font-size: 0.78rem; opacity: 0.85; flex-basis: 100%; overflow-wrap: anywhere; }
+.top .btn { background: transparent; color: var(--on-bar); border-color: rgba(255, 241, 220, 0.5); min-height: 38px; font-size: 0.88rem; }
+.top .btn[aria-pressed="true"] { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.tabs { display: flex; gap: 8px; padding-block: 14px 4px; overflow-x: auto; }
+.tabbtn { font: inherit; font-weight: 700; padding: 0 18px; min-height: 44px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.tabbtn[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.badge { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: var(--saffron); color: var(--on-saffron); font-size: 0.8rem; text-align: center; }
+main { padding-block: 10px 60px; }
+
+.sum { display: flex; gap: 12px; flex-wrap: wrap; padding-block: 10px; }
+.sum div { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 16px; min-width: 130px; }
+.sum b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; line-height: 1.1; }
+.stage { padding-top: 14px; }
+.stage h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; display: flex; align-items: center; gap: 8px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-top: 10px; }
+.ord { background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.ord.new { border-color: var(--saffron); border-width: 2.5px; }
+.ord header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ord .code { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; }
+.ord .tbl { font-weight: 700; background: var(--saffron); color: var(--on-saffron); border-radius: 999px; padding: 1px 10px; font-size: 0.88rem; }
+.ord .src { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.ord time { margin-left: auto; font-size: 0.82rem; color: var(--muted); }
+.ord ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ord li { display: flex; justify-content: space-between; gap: 10px; }
+.ord li span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); }
+.ord .nt { background: var(--bg); border-radius: 10px; padding: 6px 10px; font-size: 0.9rem; }
+.ord .warn { color: var(--bad); font-weight: 700; font-size: 0.84rem; }
+.ord footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.ord footer b { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; margin-right: auto; }
+.empty { color: var(--muted); padding: 14px 0; }
+details.stage summary { cursor: pointer; font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; padding-block: 6px; }
+
+/* New order (reception) */
+.pos { display: grid; grid-template-columns: 1fr; gap: 16px; padding-top: 12px; }
+@media (min-width: 860px) { .pos { grid-template-columns: 1.4fr 1fr; align-items: start; } .pos .side { position: sticky; top: 76px; } }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.chip { font: inherit; font-weight: 600; font-size: 0.9rem; padding: 0 14px; min-height: 40px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.chip[aria-pressed="true"] { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 10px; }
+.it { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.it b { overflow-wrap: anywhere; }
+.it .pp { display: flex; flex-wrap: wrap; gap: 6px; }
+.it .pp button { font: inherit; font-weight: 700; font-size: 0.88rem; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--saffron); background: transparent; color: var(--ink); cursor: pointer; }
+.it .pp button:active { background: var(--saffron); }
+.it.off { opacity: 0.5; }
+.ln { display: flex; align-items: center; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--line); }
+.ln .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ln .nm small { color: var(--muted); }
+.step { display: inline-flex; align-items: center; gap: 4px; }
+.step button { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--saffron); color: var(--on-saffron); font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+.step b { min-width: 24px; text-align: center; }
+.tot { display: flex; justify-content: space-between; font-size: 1.2rem; font-family: var(--font-display); font-weight: 800; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.opt { display: flex; align-items: center; gap: 10px; }
+.opt input { width: 22px; height: 22px; min-height: 0; accent-color: var(--price); }
+.opt label { margin: 0; }
+
+/* Stamps */
+.found { display: flex; flex-direction: column; gap: 10px; }
+.stamps { display: flex; flex-wrap: wrap; gap: 6px; }
+.stamps i { width: 26px; height: 26px; border-radius: 50%; border: 2px dashed var(--line); }
+.stamps i.on { background: var(--saffron); border: 2px solid var(--saffron); }
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 0.92rem; padding: 11px 18px; border-radius: 999px; max-width: 90vw; text-align: center; transition: opacity 0.2s, transform 0.2s; z-index: 50; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.bad { background: var(--bad); color: #fff; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+/* Receipt: hidden on screen, the only thing printed. Sized for an 80 mm receipt printer; also fine on A4. */
+#receipt { display: none; }
+@media print {
+  @page { size: 80mm auto; margin: 3mm; }
+  body > *:not(#receipt) { display: none !important; }
+  #receipt { display: block; font: 12px/1.35 "Courier New", monospace; color: #000; background: #fff; width: 100%; }
+  #receipt .c { text-align: center; }
+  #receipt img { width: 16mm; height: 16mm; object-fit: contain; display: block; margin: 0 auto 2mm; }
+  #receipt h1 { font: bold 15px/1.2 "Courier New", monospace; text-align: center; }
+  #receipt hr { border: 0; border-top: 1px dashed #000; margin: 2mm 0; }
+  #receipt .r { display: flex; justify-content: space-between; gap: 6px; }
+  #receipt .tot2 { font-weight: bold; font-size: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div id="boot" class="center">Loading...</div>
+
+<div id="login" class="wrap login" hidden>
+  <form id="fLogin" class="card" novalidate>
+    <h1>Orders and reception</h1>
+    <p class="muted">Log in with the same email you use for your menu panel.</p>
+    <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" required></div>
+    <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <p id="loginErr" class="err" role="alert" hidden></p>
+    <button id="loginBtn" class="btn primary" type="submit">Log in</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="wrap">
+      <span class="ttl" id="ttl">Orders</span>
+      <button id="soundBtn" class="btn small" type="button" aria-pressed="false">Sound off</button>
+      <a class="btn small" id="viewLink" href="index.html" target="_blank" rel="noopener">View menu</a>
+      <a class="btn small" id="panelLink" href="admin.html" target="_blank" rel="noopener">Menu panel</a>
+      <button id="signOut" class="btn small" type="button">Log out</button>
+      <span class="who" id="who"></span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section id="gate" class="card" style="margin-top:18px" hidden></section>
+
+    <div id="work" hidden>
+      <div class="tabs" role="tablist">
+        <button class="tabbtn" role="tab" id="tOrders" data-tab="orders" aria-selected="true">Orders<span class="badge" id="newCount" hidden>0</span></button>
+        <button class="tabbtn" role="tab" id="tNew" data-tab="new" aria-selected="false">New order</button>
+        <button class="tabbtn" role="tab" id="tStamps" data-tab="stamps" aria-selected="false">Stamps</button>
+      </div>
+
+      <main>
+        <section id="paneOrders">
+          <div class="sum" id="sum"></div>
+          <div id="stages"></div>
+        </section>
+
+        <section id="paneNew" hidden>
+          <div class="pos">
+            <div>
+              <div class="chips" id="posCats"></div>
+              <div style="margin-top:10px"><label for="posSearch" class="muted">Search</label><input id="posSearch" placeholder="Type a dish name" autocomplete="off"></div>
+              <div class="items" id="posItems"></div>
+            </div>
+            <div class="card side">
+              <h2 style="font-family:var(--font-display);font-weight:800;font-size:1.3rem">Order</h2>
+              <div id="posLines"><p class="muted">Tap a price to add a dish.</p></div>
+              <div class="tot"><span>Total</span><span id="posTotal">₹0</span></div>
+              <div class="two">
+                <div><label for="pTable">Table</label><input id="pTable" maxlength="12" value="Counter"></div>
+                <div><label for="pPhone">Mobile (optional)</label><input id="pPhone" inputmode="tel" maxlength="14"></div>
+              </div>
+              <div><label for="pName">Name (optional)</label><input id="pName" maxlength="40"></div>
+              <div><label for="pNote">Note</label><textarea id="pNote" maxlength="200" rows="2"></textarea></div>
+              <div class="opt"><input id="pPaid" type="checkbox"><label for="pPaid">Already paid</label></div>
+              <p id="posErr" class="err" role="alert" hidden></p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button id="posPlace" class="btn primary" type="button">Place order</button>
+                <button id="posPrint" class="btn" type="button">Place and print</button>
+                <button id="posClear" class="btn ghost" type="button">Clear</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="paneStamps" hidden>
+          <div class="card" style="margin-top:12px">
+            <h2 style="font-family:var(--font-display);font-weight:800;font-size:1.3rem">Loyalty stamps</h2>
+            <p class="muted" id="stampInfo"></p>
+            <form id="stampForm" style="display:flex;gap:8px;flex-wrap:wrap" novalidate>
+              <input id="stampPhone" inputmode="tel" maxlength="14" placeholder="Customer mobile number" style="flex:1;min-width:200px" aria-label="Customer mobile number">
+              <button class="btn primary" type="submit">Find</button>
+            </form>
+            <div id="stampOut"></div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+              <h2 style="font-family:var(--font-display);font-weight:800;font-size:1.3rem">Your customers</h2>
+              <button id="loadCust" class="btn small" type="button">Load list</button>
+            </div>
+            <div id="custOut"><p class="muted">Customers who gave their number appear here once they earn a stamp.</p></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div id="receipt" aria-hidden="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { RID, start } from "./firebase-config.js";
+import { isPremium, subStatus, rupees, normPhone, orderCode, fmtTime, safeImg, cleanTable, PAY_WHATSAPP } from "./shared.js";
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+var F = null, user = null, rest = null, items = [], orders = [];
+var ready = { r: false, i: false, o: false };
+var unsubs = [], firstOrders = true, soundOn = false, audio = null;
+var posCat = "", posLines = {}, tab = "orders", denied = false;
+
+// ---------- helpers
+function toast(msg, bad) {
+  var t = $("toast");
+  t.textContent = msg; t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toast.t); toast.t = setTimeout(function () { t.className = ""; }, 3200);
+}
+function friendly(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("permission-denied") >= 0) return "This login is not allowed to do that.";
+  if (c.indexOf("unavailable") >= 0 || c.indexOf("network") >= 0) return "No internet. Check your connection and try again.";
+  return (e && e.message) || "Something went wrong. Try again.";
+}
+async function run(p, ok) {
+  try {
+    await Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej({ code: "unavailable" }); }, 15000); })]);
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { toast(friendly(e), true); return false; }
+}
+function authMsg(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0 || c.indexOf("invalid-email") >= 0) return "Wrong email or password.";
+  if (c.indexOf("too-many-requests") >= 0) return "Too many tries. Wait a few minutes and try again.";
+  return "Could not log in. Try again.";
+}
+function oRef(id) { return F.fs.doc(F.db, "restaurants", RID, "orders", id); }
+function lRef(phone) { return F.fs.doc(F.db, "restaurants", RID, "loyalty", phone); }
+function ms(ts) { return ts && ts.toMillis ? ts.toMillis() : Date.now(); }
+function ago(t) {
+  var m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return m + " min ago";
+  var h = Math.floor(m / 60);
+  return h + (h === 1 ? " hour ago" : " hours ago");
+}
+function loyaltyOn() { return !!(rest && rest.loyalty && rest.loyalty.on && rest.loyalty.goal >= 2); }
+
+// ---------- start and login
+(async function init() {
+  try { F = await start({ auth: true }); }
+  catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
+  F.authMod.onAuthStateChanged(F.auth, onUser);
+})();
+function onUser(u) {
+  user = u;
+  $("boot").hidden = true;
+  $("login").hidden = !!u || false;
+  $("app").hidden = !u;
+  unsubs.forEach(function (f) { f(); }); unsubs = [];
+  ready = { r: false, i: false, o: false }; rest = null; items = []; orders = []; firstOrders = true; denied = false;
+  // a customer's anonymous visit on this device is not a staff login
+  if (u && !u.email) { $("login").hidden = false; $("app").hidden = true; return; }
+  if (u) {
+    $("who").textContent = u.email + "  |  " + RID;
+    $("viewLink").href = "index.html?r=" + RID + "&fresh=1";
+    $("panelLink").href = "admin.html?r=" + RID;
+    subscribe();
+  }
+}
+$("fLogin").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var err = $("loginErr"); err.hidden = true;
+  var btn = $("loginBtn"); btn.disabled = true;
+  try { await F.authMod.signInWithEmailAndPassword(F.auth, $("lEmail").value.trim(), $("lPass").value); }
+  catch (x) { err.textContent = authMsg(x); err.hidden = false; }
+  btn.disabled = false;
+});
+$("signOut").addEventListener("click", function () { F.authMod.signOut(F.auth); });
+
+function subscribe() {
+  var fs = F.fs;
+  unsubs.push(fs.onSnapshot(fs.doc(F.db, "restaurants", RID), function (s) {
+    rest = s.exists() ? s.data() : null; ready.r = true; draw();
+  }, function (e) { toast(friendly(e), true); }));
+  unsubs.push(fs.onSnapshot(fs.collection(F.db, "restaurants", RID, "items"), function (s) {
+    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw();
+  }, function () {}));
+  var since = fs.Timestamp.fromMillis(Date.now() - 24 * 3600 * 1000);
+  var q = fs.query(fs.collection(F.db, "restaurants", RID, "orders"), fs.where("createdAt", ">=", since), fs.orderBy("createdAt", "desc"), fs.limit(200));
+  unsubs.push(fs.onSnapshot(q, function (s) {
+    var fresh = 0;
+    if (!firstOrders) s.docChanges().forEach(function (c) {
+      if (c.type === "added") { var d = c.doc.data(); if (d.status === "new" && d.source === "customer") fresh++; }
+    });
+    firstOrders = false;
+    orders = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+    ready.o = true; denied = false;
+    if (fresh) { beep(); toast(fresh === 1 ? "New order!" : fresh + " new orders!"); }
+    draw();
+  }, function () { denied = true; ready.o = true; draw(); }));
+}
+
+// ---------- sound
+function beep() {
+  if (!soundOn || !audio) return;
+  try {
+    [0, 0.22].forEach(function (t0, i) {
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine"; o.frequency.value = i ? 1175 : 880;
+      g.gain.setValueAtTime(0.0001, audio.currentTime + t0);
+      g.gain.exponentialRampToValueAtTime(0.35, audio.currentTime + t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + t0 + 0.2);
+      o.connect(g); g.connect(audio.destination);
+      o.start(audio.currentTime + t0); o.stop(audio.currentTime + t0 + 0.22);
+    });
+  } catch (e) {}
+}
+$("soundBtn").addEventListener("click", function () {
+  soundOn = !soundOn;
+  if (soundOn && !audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (soundOn && audio && audio.state === "suspended") audio.resume();
+  $("soundBtn").setAttribute("aria-pressed", String(soundOn));
+  $("soundBtn").textContent = soundOn ? "Sound on" : "Sound off";
+  if (soundOn) beep();
+});
+
+// ---------- drawing
+function gate(html) { var g = $("gate"); g.innerHTML = html; g.hidden = false; $("work").hidden = true; }
+function draw() {
+  if (!user || !user.email || !ready.r || !ready.o) return;
+  if (!rest) return gate('<h2>Cafe not found</h2><p class="muted">Check the link, or ask Brand Boost Studio.</p>');
+  $("ttl").textContent = (rest.name || "Cafe") + " · Orders";
+  if (denied) return gate('<h2>This login is not allowed</h2><p class="muted">Log out and use the email that is listed as an owner of this cafe.</p>');
+  var st = subStatus(rest.sub);
+  if (st.state === "locked") return gate('<h2>Your plan is switched off</h2><p class="muted">Open the menu panel to see how to pay and switch it back on.</p>');
+  if (!isPremium(rest)) {
+    var wa = "https://wa.me/" + PAY_WHATSAPP + "?text=" + encodeURIComponent("Hi Brand Boost Studio, I would like to upgrade " + (rest.name || RID) + " (" + RID + ") to Premium.");
+    return gate('<h2>Orders and reception are part of Premium</h2><p class="muted">Customers order from their table, you see every order live and print receipts. Ask Brand Boost Studio to upgrade your plan.</p><a class="btn primary" style="align-self:flex-start" target="_blank" rel="noopener" href="' + esc(wa) + '">Ask to upgrade on WhatsApp</a>');
+  }
+  $("gate").hidden = true; $("work").hidden = false;
+  drawOrders(); drawPos(); $("stampInfo").textContent = loyaltyOn()
+    ? "A stamp is added automatically when you mark an order paid and it has a mobile number. " + rest.loyalty.goal + " stamps = " + (rest.loyalty.reward || "a reward") + "."
+    : "Loyalty stamps are switched off. Turn them on in your menu panel.";
+}
+
+function priceMismatch(o) {
+  return (o.items || []).some(function (l) {
+    var it = items.filter(function (x) { return x.id === l.id; })[0];
+    if (!it) return false;
+    return !(it.p || []).some(function (p) { return Number(p.v) === Number(l.v) && (p.l || "") === (l.l || ""); });
+  });
+}
+function orderHTML(o) {
+  var t = ms(o.createdAt);
+  var lines = (o.items || []).map(function (l) {
+    return "<li><span>" + l.q + " × " + esc(l.n) + (l.l ? " (" + esc(l.l) + ")" : "") + "</span><span>" + rupees(l.q * l.v) + "</span></li>";
+  }).join("");
+  var who = [o.name, o.phone].filter(Boolean).map(esc).join(" · ");
+  var acts = "";
+  if (o.status === "new") acts = '<button class="btn small primary" data-a="preparing">Start preparing</button><button class="btn small danger" data-a="cancelled">Cancel</button>';
+  else if (o.status === "preparing") acts = '<button class="btn small primary" data-a="ready">Mark ready</button><button class="btn small danger" data-a="cancelled">Cancel</button>';
+  else if (o.status === "ready") acts = '<button class="btn small ok" data-a="done">Paid and done</button><button class="btn small danger" data-a="cancelled">Cancel</button>';
+  var end = o.status === "done" ? "Paid" : (o.status === "cancelled" ? "Cancelled" : "");
+  return '<article class="ord ' + esc(o.status) + '" data-id="' + esc(o.id) + '">' +
+    '<header><span class="code">#' + esc(orderCode(o.id)) + '</span><span class="tbl">' + esc(o.table) + '</span><span class="src">' + (o.source === "staff" ? "Staff" : "Customer") + "</span><time>" + fmtTime(t) + " · " + ago(t) + "</time></header>" +
+    (who ? '<p class="muted">' + who + "</p>" : "") +
+    "<ul>" + lines + "</ul>" +
+    (o.note ? '<p class="nt">Note: ' + esc(o.note) + "</p>" : "") +
+    (priceMismatch(o) ? '<p class="warn">A price here differs from the current menu. Check before collecting.</p>' : "") +
+    "<footer><b>" + rupees(o.total) + "</b>" + (end ? '<span class="muted">' + end + "</span>" : "") + acts + '<button class="btn small ghost" data-a="print">Print</button></footer></article>';
+}
+function drawOrders() {
+  var by = { "new": [], preparing: [], ready: [], done: [] };
+  orders.forEach(function (o) { (by[o.status] || by.done).push(o); });
+  by.done = orders.filter(function (o) { return o.status === "done" || o.status === "cancelled"; });
+  var paid = orders.filter(function (o) { return o.status === "done"; });
+  var sum = paid.reduce(function (t, o) { return t + Number(o.total); }, 0);
+  $("sum").innerHTML = '<div><b>' + orders.filter(function (o) { return o.status !== "cancelled"; }).length + '</b><span class="muted">orders, last 24 hours</span></div><div><b>' + rupees(sum) + '</b><span class="muted">paid</span></div>';
+  var n = by["new"].length;
+  $("newCount").hidden = !n; $("newCount").textContent = n;
+  document.title = (n ? "(" + n + ") " : "") + "Orders and reception";
+  function stage(title, list, cls) {
+    return '<section class="stage"><h2>' + title + '<span class="badge">' + list.length + "</span></h2>" +
+      (list.length ? '<div class="grid">' + list.map(orderHTML).join("") + "</div>" : '<p class="empty">Nothing here.</p>') + "</section>";
+  }
+  $("stages").innerHTML = stage("New", by["new"]) + stage("Preparing", by.preparing) + stage("Ready", by.ready) +
+    '<details class="stage"' + (by.done.length && !by["new"].length && !by.preparing.length && !by.ready.length ? " open" : "") + "><summary>Done and cancelled (" + by.done.length + ")</summary>" +
+    (by.done.length ? '<div class="grid">' + by.done.map(orderHTML).join("") + "</div>" : '<p class="empty">Nothing here.</p>') + "</details>";
+}
+setInterval(function () { if (rest && !$("work").hidden && tab === "orders" && !document.hidden) drawOrders(); }, 30000);
+
+$("stages").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-a]");
+  if (!b) return;
+  var id = b.closest(".ord").dataset.id;
+  var o = orders.filter(function (x) { return x.id === id; })[0];
+  if (!o) return;
+  var a = b.dataset.a;
+  if (a === "print") return printReceipt(o);
+  if (a === "cancelled" && !confirm("Cancel order #" + orderCode(o.id) + "?")) return;
+  setStatus(o, a);
+});
+async function setStatus(o, status) {
+  var fs = F.fs, b = fs.writeBatch(F.db);
+  if (status === "done") {
+    var data = { status: "done", paid: true, paidAt: fs.serverTimestamp() };
+    var phone = normPhone(o.phone);
+    if (loyaltyOn() && phone && !o.stamped) {
+      data.stamped = true;
+      var l = { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() };
+      b.set(lRef(phone), l, { merge: true });
+    }
+    b.update(oRef(o.id), data);
+  } else {
+    b.update(oRef(o.id), { status: status });
+  }
+  await run(b.commit(), status === "done" ? "Paid. Order done." : (status === "cancelled" ? "Order cancelled" : "Updated"));
+}
+
+// ---------- tabs
+document.querySelector(".tabs").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-tab]");
+  if (!b) return;
+  tab = b.dataset.tab;
+  Array.prototype.forEach.call(document.querySelectorAll(".tabbtn"), function (x) { x.setAttribute("aria-selected", String(x === b)); });
+  $("paneOrders").hidden = tab !== "orders"; $("paneNew").hidden = tab !== "new"; $("paneStamps").hidden = tab !== "stamps";
+  if (tab === "orders") drawOrders();
+});
+
+// ---------- reception: new order
+function cats() { return (rest && rest.categories) || []; }
+function drawPos() {
+  if (!posCat || !cats().some(function (c) { return c.id === posCat; })) posCat = cats()[0] ? cats()[0].id : "";
+  $("posCats").innerHTML = cats().map(function (c) { return '<button type="button" class="chip" data-c="' + esc(c.id) + '" aria-pressed="' + (c.id === posCat) + '">' + esc(c.name) + "</button>"; }).join("");
+  var q = $("posSearch").value.trim().toLowerCase();
+  var list = items.filter(function (it) { return q ? String(it.n).toLowerCase().indexOf(q) >= 0 : it.cat === posCat; })
+    .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  $("posItems").innerHTML = list.map(function (it) {
+    return '<div class="it' + (it.sold ? " off" : "") + '"><b>' + esc(it.n) + (it.sold ? ' <small class="muted">(sold out)</small>' : "") + '</b><div class="pp">' +
+      (it.p || []).map(function (p, j) { return '<button type="button" data-k="' + esc(it.id + "|" + j) + '">' + (p.l ? esc(p.l) + " " : "") + rupees(p.v) + "</button>"; }).join("") + "</div></div>";
+  }).join("") || '<p class="empty">No dishes found.</p>';
+  drawLines();
+}
+function drawLines() {
+  var keys = Object.keys(posLines);
+  $("posLines").innerHTML = keys.length ? keys.map(function (k) {
+    var l = posLines[k];
+    return '<div class="ln"><div class="nm"><b>' + esc(l.n) + "</b><small>" + (l.l ? esc(l.l) + " · " : "") + rupees(l.v) + '</small></div><span class="step"><button type="button" data-d="-1" data-k="' + esc(k) + '" aria-label="Remove one">−</button><b>' + l.q + '</b><button type="button" data-d="1" data-k="' + esc(k) + '" aria-label="Add one">+</button></span></div>';
+  }).join("") : '<p class="muted">Tap a price to add a dish.</p>';
+  $("posTotal").textContent = rupees(keys.reduce(function (t, k) { return t + posLines[k].q * posLines[k].v; }, 0));
+}
+$("posCats").addEventListener("click", function (e) { var b = e.target.closest("[data-c]"); if (b) { posCat = b.dataset.c; $("posSearch").value = ""; drawPos(); } });
+$("posSearch").addEventListener("input", drawPos);
+$("posItems").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-k]"); if (!b) return;
+  var id = b.dataset.k.split("|")[0], j = +b.dataset.k.split("|")[1];
+  var it = items.filter(function (x) { return x.id === id; })[0];
+  if (!it || it.sold || !it.p[j]) return;
+  var l = posLines[b.dataset.k] || (posLines[b.dataset.k] = { id: id, n: it.n, l: it.p[j].l || "", v: it.p[j].v, q: 0 });
+  l.q = Math.min(50, l.q + 1); drawLines();
+});
+$("posLines").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-d]"); if (!b) return;
+  var l = posLines[b.dataset.k]; if (!l) return;
+  l.q += +b.dataset.d; if (l.q <= 0) delete posLines[b.dataset.k]; drawLines();
+});
+function clearPos() { posLines = {}; $("pTable").value = "Counter"; $("pPhone").value = ""; $("pName").value = ""; $("pNote").value = ""; $("pPaid").checked = false; $("posErr").hidden = true; drawLines(); }
+$("posClear").addEventListener("click", clearPos);
+function posErr(m) { $("posErr").textContent = m; $("posErr").hidden = false; }
+async function placeStaff(print) {
+  $("posErr").hidden = true;
+  var keys = Object.keys(posLines);
+  if (!keys.length) return posErr("Add at least one dish.");
+  var table = cleanTable($("pTable").value);
+  if (!table) return posErr("Enter a table or label (letters and numbers only).");
+  var raw = $("pPhone").value.trim(), phone = raw ? normPhone(raw) : "";
+  if (raw && !phone) return posErr("Enter a 10-digit mobile number, or leave it empty.");
+  var lines = keys.map(function (k) { var l = posLines[k]; return { id: l.id, n: l.n, l: l.l, v: l.v, q: l.q }; });
+  var total = lines.reduce(function (t, l) { return t + l.v * l.q; }, 0);
+  var paid = $("pPaid").checked, fs = F.fs, name = $("pName").value.trim();
+  var ref = fs.doc(fs.collection(F.db, "restaurants", RID, "orders"));
+  var stamp = paid && loyaltyOn() && !!phone;
+  var data = { uid: user.uid, table: table, name: name, phone: phone, note: $("pNote").value.trim(), items: lines, total: total, status: paid ? "done" : "preparing", source: "staff", paid: paid, stamped: stamp, createdAt: fs.serverTimestamp() };
+  if (paid) data.paidAt = fs.serverTimestamp();
+  var b = fs.writeBatch(F.db);
+  b.set(ref, data);
+  if (stamp) { var l = { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }; b.set(lRef(phone), l, { merge: true }); }
+  if (await run(b.commit(), "Order placed")) {
+    var copy = Object.assign({}, data, { id: ref.id, createdAt: { toMillis: function () { return Date.now(); } } });
+    clearPos();
+    if (print) printReceipt(copy);
+  }
+}
+$("posPlace").addEventListener("click", function () { placeStaff(false); });
+$("posPrint").addEventListener("click", function () { placeStaff(true); });
+
+// ---------- receipt
+function printReceipt(o) {
+  var t = ms(o.createdAt), d = new Date(t);
+  var logo = safeImg(rest && rest.logo);
+  var lines = (o.items || []).map(function (l) {
+    return '<div class="r"><span>' + l.q + " x " + esc(l.n) + (l.l ? " (" + esc(l.l) + ")" : "") + "</span><span>" + rupees(l.q * l.v) + "</span></div>";
+  }).join("");
+  $("receipt").innerHTML =
+    (logo ? '<img alt="" src="' + esc(logo) + '">' : "") +
+    "<h1>" + esc((rest && rest.name) || "") + "</h1><hr>" +
+    '<div class="r"><span>Order #' + esc(orderCode(o.id)) + "</span><span>" + esc(o.table) + "</span></div>" +
+    "<div>" + d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) + " " + fmtTime(t) + "</div>" +
+    (o.name ? "<div>" + esc(o.name) + "</div>" : "") + "<hr>" + lines + "<hr>" +
+    '<div class="r tot2"><span>TOTAL</span><span>' + rupees(o.total) + "</span></div>" +
+    '<div class="c" style="margin-top:2mm">' + (o.paid ? "PAID" : "Please pay at the counter") + "</div><hr>" +
+    '<div class="c">Thank you! Visit again.</div><div class="c" style="font-size:10px;margin-top:2mm">Menu by Brand Boost Studio</div>';
+  setTimeout(function () { window.print(); }, 60);
+}
+
+// ---------- stamps
+$("stampForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var phone = normPhone($("stampPhone").value), out = $("stampOut");
+  if (!loyaltyOn()) { out.innerHTML = '<p class="err">Loyalty stamps are switched off in the menu panel.</p>'; return; }
+  if (!phone) { out.innerHTML = '<p class="err">Enter a 10-digit mobile number.</p>'; return; }
+  await showCustomer(phone);
+});
+async function showCustomer(phone) {
+  var out = $("stampOut"), lo = rest.loyalty;
+  out.innerHTML = '<p class="muted">Looking up...</p>';
+  try {
+    var snap = await F.fs.getDoc(lRef(phone)), d = snap.exists() ? snap.data() : { stamps: 0, redeemed: 0 };
+    var n = Number(d.stamps) || 0, g = lo.goal, html = '<div class="found"><p><b>' + esc(phone) + "</b>" + '</p><div class="stamps">';
+    for (var i = 0; i < g; i++) html += '<i class="' + (i < Math.min(n, g) ? "on" : "") + '"></i>';
+    html += "</div><p><b>" + n + " of " + g + "</b> stamps · " + (Number(d.redeemed) || 0) + ' rewards given</p><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn" data-s="add" data-p="' + esc(phone) + '">Add 1 stamp</button>' +
+      (n >= g ? '<button class="btn primary" data-s="redeem" data-p="' + esc(phone) + '">Give reward: ' + esc(lo.reward || "reward") + "</button>" : "") + "</div></div>";
+    out.innerHTML = html;
+  } catch (x) { out.innerHTML = '<p class="err">' + esc(friendly(x)) + "</p>"; }
+}
+$("stampOut").addEventListener("click", async function (e) {
+  var b = e.target.closest("[data-s]"); if (!b) return;
+  var phone = b.dataset.p, fs = F.fs, lo = rest.loyalty;
+  var data = b.dataset.s === "add"
+    ? { phone: phone, stamps: fs.increment(1), updatedAt: fs.serverTimestamp() }
+    : { phone: phone, stamps: fs.increment(-lo.goal), redeemed: fs.increment(1), updatedAt: fs.serverTimestamp() };
+  if (await run(fs.setDoc(lRef(phone), data, { merge: true }), b.dataset.s === "add" ? "Stamp added" : "Reward given")) showCustomer(phone);
+});
+$("loadCust").addEventListener("click", async function () {
+  var out = $("custOut"), fs = F.fs;
+  out.innerHTML = '<p class="muted">Loading...</p>';
+  try {
+    var q = fs.query(fs.collection(F.db, "restaurants", RID, "loyalty"), fs.orderBy("stamps", "desc"), fs.limit(200));
+    var s = await fs.getDocs(q);
+    out.innerHTML = s.docs.length ? "<table><thead><tr><th>Mobile</th><th>Stamps</th><th>Rewards</th></tr></thead><tbody>" + s.docs.map(function (d) {
+      var x = d.data(); return "<tr><td>" + esc(d.id) + "</td><td>" + (Number(x.stamps) || 0) + "</td><td>" + (Number(x.redeemed) || 0) + "</td></tr>";
+    }).join("") + "</tbody></table>" : '<p class="muted">No customers yet.</p>';
+  } catch (x) { out.innerHTML = '<p class="err">' + esc(friendly(x)) + "</p>"; }
+});
+</script>
+</body>
+</html>

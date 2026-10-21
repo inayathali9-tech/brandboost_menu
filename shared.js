@@ -1,10 +1,33 @@
 // Small helpers used by the public menu, the client panel and the agency panel.
 
 // ---------- plans and the payment lock
-export const PLANS = {
-  monthly: { label: "Monthly", price: 179, months: 1, per: "month" },
-  yearly: { label: "Yearly", price: 2000, months: 12, per: "year" }
+// Two tiers, each billed monthly or yearly. The tier is stored on the cafe ("tier"); the paid period on "sub".
+export const TIERS = {
+  standard: { label: "Standard", monthly: 179, yearly: 1999 },
+  premium: { label: "Premium", monthly: 269, yearly: 3049 }
 };
+export const PERIODS = {
+  monthly: { label: "Monthly", months: 1, per: "month" },
+  yearly: { label: "Yearly", months: 12, per: "year" }
+};
+export function priceOf(tier, period) { return (TIERS[tier] || TIERS.standard)[period === "yearly" ? "yearly" : "monthly"]; }
+export function tierOf(rest) { return rest && rest.tier === "premium" ? "premium" : "standard"; }
+export function isPremium(rest) { return tierOf(rest) === "premium"; }
+export const STANDARD_FEATURES = [
+  "Clean digital menu on any phone, opened by QR code",
+  "Edit dishes, prices, photos and sold-out items yourself",
+  "Your own colors and logo",
+  "Instagram, WhatsApp and Google review buttons"
+];
+export const PREMIUM_FEATURES = [
+  "Everything in Standard",
+  "Customers order from their table: a separate QR code per table",
+  "Live orders panel with a sound alert for new orders",
+  "Reception ordering panel (POS) with printable receipts",
+  "Loyalty stamp card that brings customers back",
+  "App-style menu with a photo slider, like the delivery apps",
+  "Your logo on the menu and on every table QR"
+];
 export const GRACE_DAYS = 3;
 export const UPI_ID = "8019314110@fam";
 export const PAY_WHATSAPP = "918019314110";
@@ -36,12 +59,12 @@ export function subStatus(sub, now) {
   return { state: "locked", due: due, lockAt: lockAt };
 }
 
-// The next due date when a payment is marked. Paid or in grace: continue from the old due date. Locked or new: start today.
-export function nextDue(sub, planKey, now) {
+// The next due date when a payment is marked (periodKey is "monthly" or "yearly"). Paid or in grace: continue from the old due date. Locked or new: start today.
+export function nextDue(sub, periodKey, now) {
   now = now == null ? Date.now() : now;
   var st = subStatus(sub, now);
   var base = st.state === "active" || st.state === "grace" ? st.due : now;
-  return addMonths(base, PLANS[planKey].months);
+  return addMonths(base, PERIODS[periodKey].months);
 }
 
 // ---------- cafe colours
@@ -72,18 +95,13 @@ export function contrast(a, b) {
   var x = lum(a), y = lum(b);
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
-// The better of two text colours on this background. If neither is readable enough, falls back to pure white or black.
-function readable(bg, light, dark) {
-  var pick = contrast(bg, dark) >= contrast(bg, light) ? dark : light;
-  if (contrast(bg, pick) >= 4.5) return pick;
-  return contrast(bg, "#000000") >= contrast(bg, "#FFFFFF") ? "#000000" : "#FFFFFF";
-}
+function readable(bg, light, dark) { return contrast(bg, dark) >= contrast(bg, light) ? dark : light; }
 
 // Turns three chosen colours into every colour the page uses, so text always stays readable.
 export function themeVars(t) {
   t = validTheme(t) || DEFAULT_THEME;
-  var dark = lum(t.bg) < 0.18;
-  var ink = readable(t.bg, mix(t.bg, "#FFFFFF", 0.92), mix(t.bg, "#000000", 0.9));
+  var dark = lum(t.bg) < 0.3;
+  var ink = dark ? mix(t.bg, "#FFFFFF", 0.92) : mix(t.bg, "#000000", 0.9);
   var muted = ink;
   for (var k = 0.4; k >= 0; k -= 0.05) {
     muted = mix(ink, t.bg, k);
@@ -121,4 +139,49 @@ export function applyTheme(el, theme, root) {
   var v = themeVars(t);
   names.forEach(function (n) { el.style.setProperty(n, v.vars[n]); });
   if (root) { root.setAttribute("data-theme", "light"); el.style.colorScheme = v.dark ? "dark" : "light"; }
+}
+
+// ---------- orders, phones, pictures
+export function normPhone(v) {
+  var d = String(v || "").replace(/\D/g, "");
+  if (d.length === 12 && d.indexOf("91") === 0) d = d.slice(2);
+  if (d.length === 11 && d.charAt(0) === "0") d = d.slice(1);
+  return /^[6-9]\d{9}$/.test(d) ? d : "";
+}
+export function orderCode(id) { return String(id || "").slice(-4).toUpperCase(); }
+export function fmtTime(ms) { return new Date(ms).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }); }
+export function lineTotal(lines) { return (lines || []).reduce(function (t, l) { return t + Number(l.v) * Number(l.q); }, 0); }
+export function cleanTable(t) { t = String(t || "").trim(); return /^[A-Za-z0-9 -]{1,12}$/.test(t) ? t : ""; }
+export function safeImg(u) { u = String(u || "").trim(); return /^(https:\/\/|data:image\/)/i.test(u) ? u : ""; }
+
+// Reads a photo file, crops it to w x h and shrinks it until the text of the picture is at most maxChars long.
+// opts.contain keeps the whole picture (for logos) instead of cropping.
+export async function shrinkPhoto(file, w, h, maxChars, opts) {
+  opts = opts || {};
+  var bmp;
+  try { bmp = await createImageBitmap(file); }
+  catch (e) {
+    bmp = await new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () { res(img); };
+      img.onerror = rej;
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  var sw = bmp.width, sh = bmp.height;
+  var c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  var g = c.getContext("2d");
+  g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, w, h);
+  if (opts.contain) {
+    var k = Math.min(w / sw, h / sh);
+    g.drawImage(bmp, 0, 0, sw, sh, (w - sw * k) / 2, (h - sh * k) / 2, sw * k, sh * k);
+    if (opts.png) { var png = c.toDataURL("image/png"); if (png.length <= maxChars) return png; }
+  } else {
+    var r = Math.max(w / sw, h / sh), cw = w / r, ch = h / r;
+    g.drawImage(bmp, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, w, h);
+  }
+  var q = 0.8, out = c.toDataURL("image/jpeg", q);
+  while (out.length > maxChars && q > 0.35) { q -= 0.1; out = c.toDataURL("image/jpeg", q); }
+  return out;
 }

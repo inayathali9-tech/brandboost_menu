@@ -76,6 +76,10 @@ main { padding-block: 18px 40px; display: flex; flex-direction: column; gap: 16p
 .pill.locked { background: #FFE1DC; color: #5A0F07; }
 .pill.none { background: var(--line); color: var(--ink); }
 .subline { font-size: 0.9rem; }
+.pill.tier { margin: 0 0 0 8px; vertical-align: middle; }
+.pill.std { background: var(--line); color: var(--ink); }
+.pill.prem { background: var(--saffron); color: var(--on-saffron); }
+.grp { font-weight: 700; font-size: 0.88rem; margin: 4px 0 -6px; }
 .radios { display: flex; flex-direction: column; gap: 8px; }
 .radios label { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field); }
 .radios input { width: 20px; min-height: 0; height: 20px; padding: 0; accent-color: var(--price); }
@@ -97,7 +101,7 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
 <div id="login" class="wrap login" hidden>
   <form id="fLogin" class="card" novalidate style="padding:22px;gap:16px">
     <h1>Agency Panel</h1>
-    <p class="muted">For Brand Boost Studio. Log in to add cafes and choose who can edit each menu.</p>
+    <p class="muted">For Brand Boost Studio. Log in to add cafes, choose who can edit each menu, set the tier and mark payments.</p>
     <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" required></div>
     <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
     <p id="loginErr" class="err" role="alert" hidden></p>
@@ -137,6 +141,8 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
       <p class="muted" style="margin-top:4px">Also add each owner under Firebase, Authentication, Users, with a password.</p></div>
     <div><label for="aStart">Start with</label>
       <select id="aStart"><option value="empty">An empty menu</option><option value="sample">Sample dishes (Mandi, Burgers, Pizza and more)</option></select></div>
+    <div><label for="aTier">Tier</label>
+      <select id="aTier"><option value="standard">Standard (menu only)</option><option value="premium">Premium (ordering, orders panel, stamps, app-style menu)</option></select></div>
     <div><label for="aPlan">Plan</label>
       <select id="aPlan"><option value="none">No plan yet (menu never switches off)</option><option value="monthly">Paid, monthly</option><option value="yearly">Paid, yearly</option></select></div>
     <p id="cafeErr" class="err" role="alert" hidden></p>
@@ -151,6 +157,9 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
   <form id="fPaid" novalidate>
     <h2 id="paidTitle">Mark paid</h2>
     <p id="paidNow" class="muted"></p>
+    <p class="grp">Tier</p>
+    <div class="radios" id="paidTier"></div>
+    <p class="grp">Billing</p>
     <div class="radios" id="paidPlans"></div>
     <div><label for="pDate">Paid until</label><input id="pDate" type="date">
       <p class="muted" style="margin-top:4px">Worked out from the current due date. Change it if needed. After this date there are 3 extra days, then the menu switches off.</p></div>
@@ -159,6 +168,18 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
       <button id="removePlan" class="btn ghost" type="button" style="margin-right:auto">Remove plan</button>
       <button id="cancelPaid" class="btn ghost" type="button">Cancel</button>
       <button id="savePaid" class="btn primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgTier">
+  <form id="fTier" novalidate>
+    <h2 id="tierTitle">Change tier</h2>
+    <div class="radios" id="tierOpts"></div>
+    <p class="muted">This only switches the features on or off. It does not change the paid-until date. To record a payment use Mark paid.</p>
+    <div class="actions">
+      <button id="cancelTier" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save tier</button>
     </div>
   </form>
 </dialog>
@@ -181,7 +202,7 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
 <script type="module">
 import { start } from "./firebase-config.js";
 import { SAMPLE } from "./sample-menu.js";
-import { PLANS, GRACE_DAYS, subStatus, nextDue, addMonths, endOfDay, fmtDate, rupees } from "./shared.js";
+import { TIERS, PERIODS, priceOf, tierOf, subStatus, nextDue, addMonths, endOfDay, fmtDate, rupees } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -270,7 +291,7 @@ function subscribe() {
     ownersOk = true; ready.o = true; draw();
   }, function () { ownersOk = false; ready.o = true; draw(); }));
   unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
-    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null }; })
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()) }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
     ready.c = true; draw();
   }, function (e) { toast(friendly(e), true); }));
@@ -279,9 +300,9 @@ function subscribe() {
 function menuUrl(id) { return new URL("index.html?r=" + id, location.href).href; }
 
 function days(n) { return n + (n === 1 ? " day" : " days"); }
-function subLine(sub) {
+function subLine(sub, tier) {
   var st = subStatus(sub);
-  var plan = sub && PLANS[sub.plan] ? PLANS[sub.plan].label.toLowerCase() + ", " : "";
+  var plan = sub && PERIODS[sub.plan] ? TIERS[tier || "standard"].label + " " + PERIODS[sub.plan].label.toLowerCase() + ", " : "";
   if (st.state === "active") return '<span class="pill active">Active</span>' + esc(plan) + "paid until " + fmtDate(st.due) + " (" + days(st.daysLeft) + " left)";
   if (st.state === "grace") return '<span class="pill grace">Due</span>was due ' + fmtDate(st.due) + ". Switches off after " + fmtDate(st.lockAt) + " (" + days(st.daysLeft) + " left)";
   if (st.state === "locked") return '<span class="pill locked">Switched off</span>was due ' + fmtDate(st.due) + ". Mark paid to switch it back on";
@@ -296,14 +317,17 @@ function draw() {
   $("cafes").innerHTML = cafes.length ? cafes.map(function (c) {
     var list = owners[c.id] || [];
     return '<section class="card cafe">' +
-      "<h3>" + esc(c.name) + "</h3>" +
+      "<h3>" + esc(c.name) + '<span class="pill tier ' + (c.tier === "premium" ? "prem" : "std") + '">' + TIERS[c.tier].label + "</span></h3>" +
       '<p class="muted">Link name: <code>' + esc(c.id) + "</code></p>" +
       '<p class="owners">' + (list.length ? "<b>Owners:</b> " + list.map(esc).join(", ") : '<span class="err">No owners yet. Nobody can edit this menu.</span>') + "</p>" +
-      '<p class="subline">' + subLine(c.sub) + "</p>" +
+      '<p class="subline">' + subLine(c.sub, c.tier) + "</p>" +
       '<div class="btns">' +
         '<button class="btn small primary" type="button" data-act="paid" data-id="' + esc(c.id) + '">Mark paid</button>' +
+        '<button class="btn small" type="button" data-act="tier" data-id="' + esc(c.id) + '">Change tier</button>' +
         '<a class="btn small" href="index.html?r=' + encodeURIComponent(c.id) + '&fresh=1" target="_blank" rel="noopener">View menu</a>' +
         '<a class="btn small" href="admin.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Edit menu</a>' +
+        (c.tier === "premium" ? '<a class="btn small" href="pos.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Orders</a>' : "") +
+        '<a class="btn small" href="tables.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">QR codes</a>' +
         '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
         '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +
       "</div></section>";
@@ -320,6 +344,8 @@ $("cafes").addEventListener("click", async function (e) {
     catch (x) { toast(url); }
   } else if (b.dataset.act === "paid") {
     openPaid(id);
+  } else if (b.dataset.act === "tier") {
+    openTier(id);
   } else if (b.dataset.act === "owners") {
     ownerFor = id;
     var c = cafes.filter(function (x) { return x.id === id; })[0];
@@ -339,24 +365,32 @@ function fromInput(v) {
   return m ? endOfDay(new Date(+m[1], +m[2] - 1, +m[3]).getTime()) : null;
 }
 function chosenPlan() { var r = document.querySelector('#paidPlans input:checked'); return r ? r.value : "monthly"; }
+function chosenTier() { var r = document.querySelector('#paidTier input:checked'); return r ? r.value : "standard"; }
+function drawPeriods(tier, cur) {
+  $("paidPlans").innerHTML = Object.keys(PERIODS).map(function (k) {
+    return '<label><input type="radio" name="plan" value="' + k + '"' + (k === cur ? " checked" : "") + "> " + PERIODS[k].label + " " + rupees(priceOf(tier, k)) + " per " + PERIODS[k].per + "</label>";
+  }).join("");
+}
 function suggestDate() {
   var c = cafes.filter(function (x) { return x.id === paidFor; })[0];
   $("pDate").value = toInput(nextDue(c ? c.sub : null, chosenPlan()));
 }
 function openPaid(id) {
   paidFor = id; dateTouched = false;
-  var c = cafes.filter(function (x) { return x.id === id; })[0] || { sub: null };
-  var cur = c.sub && PLANS[c.sub.plan] ? c.sub.plan : "monthly";
+  var c = cafes.filter(function (x) { return x.id === id; })[0] || { sub: null, tier: "standard" };
+  var cur = c.sub && PERIODS[c.sub.plan] ? c.sub.plan : "monthly";
   $("paidTitle").textContent = "Mark paid: " + (c.name || id);
-  $("paidNow").innerHTML = subLine(c.sub);
-  $("paidPlans").innerHTML = Object.keys(PLANS).map(function (k) {
-    return '<label><input type="radio" name="plan" value="' + k + '"' + (k === cur ? " checked" : "") + "> " + PLANS[k].label + " " + rupees(PLANS[k].price) + " per " + PLANS[k].per + "</label>";
+  $("paidNow").innerHTML = subLine(c.sub, c.tier);
+  $("paidTier").innerHTML = Object.keys(TIERS).map(function (k) {
+    return '<label><input type="radio" name="tier" value="' + k + '"' + (k === c.tier ? " checked" : "") + "> " + TIERS[k].label + " " + rupees(TIERS[k].monthly) + " a month or " + rupees(TIERS[k].yearly) + " a year</label>";
   }).join("");
+  drawPeriods(c.tier, cur);
   suggestDate();
   $("removePlan").hidden = !c.sub;
   $("paidErr").hidden = true;
   $("dlgPaid").showModal();
 }
+$("paidTier").addEventListener("change", function () { drawPeriods(chosenTier(), chosenPlan()); if (!dateTouched) suggestDate(); });
 $("paidPlans").addEventListener("change", function () { if (!dateTouched) suggestDate(); });
 $("pDate").addEventListener("input", function () { dateTouched = true; });
 $("cancelPaid").addEventListener("click", function () { $("dlgPaid").close(); });
@@ -365,12 +399,31 @@ $("fPaid").addEventListener("submit", async function (e) {
   $("paidErr").hidden = true;
   var until = fromInput($("pDate").value);
   if (!until) return formErr("paidErr", "Pick the paid-until date.");
-  var plan = chosenPlan();
-  var sub = { plan: plan, paidUntil: until, paidOn: Date.now(), amount: PLANS[plan].price };
-  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: sub }), "Saved. Due date is " + fmtDate(until))) $("dlgPaid").close();
+  var plan = chosenPlan(), tier = chosenTier();
+  var sub = { plan: plan, tier: tier, paidUntil: until, paidOn: Date.now(), amount: priceOf(tier, plan) };
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: sub, tier: tier }), "Saved. " + TIERS[tier].label + " until " + fmtDate(until))) $("dlgPaid").close();
 });
 $("removePlan").addEventListener("click", async function () {
   if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: null }), "Plan removed. Menu will not switch off")) $("dlgPaid").close();
+});
+
+// ---------- tier
+var tierFor = null;
+function openTier(id) {
+  tierFor = id;
+  var c = cafes.filter(function (x) { return x.id === id; })[0] || { tier: "standard" };
+  $("tierTitle").textContent = "Tier for " + (c.name || id);
+  $("tierOpts").innerHTML = Object.keys(TIERS).map(function (k) {
+    return '<label><input type="radio" name="tierPick" value="' + k + '"' + (k === c.tier ? " checked" : "") + "> " + TIERS[k].label + (k === "premium" ? " (ordering, orders panel, stamps, app-style menu)" : " (menu only)") + "</label>";
+  }).join("");
+  $("dlgTier").showModal();
+}
+$("cancelTier").addEventListener("click", function () { $("dlgTier").close(); });
+$("fTier").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var r = document.querySelector('#tierOpts input:checked');
+  if (!r) return;
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", tierFor), { tier: r.value }), "Tier set to " + TIERS[r.value].label)) $("dlgTier").close();
 });
 
 // ---------- owners
@@ -390,7 +443,7 @@ $("aName").addEventListener("input", function () { if (!idTouched) $("aId").valu
 $("aId").addEventListener("input", function () { idTouched = true; });
 $("addCafe").addEventListener("click", function () {
   idTouched = false;
-  $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty"; $("aPlan").value = "none";
+  $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty"; $("aPlan").value = "none"; $("aTier").value = "standard";
   $("cafeErr").hidden = true;
   $("dlgCafe").showModal();
 });
@@ -413,9 +466,11 @@ $("fCafe").addEventListener("submit", async function (e) {
     var sample = $("aStart").value === "sample";
     var cats = sample ? SAMPLE.categories : [{ id: "starters", name: "Starters", blurb: "" }];
     var b = fs.writeBatch(db);
-    var planKey = $("aPlan").value;
-    var sub = PLANS[planKey] ? { plan: planKey, paidUntil: nextDue(null, planKey), paidOn: Date.now(), amount: PLANS[planKey].price } : null;
-    b.set(fs.doc(db, "restaurants", id), { name: name, tagline: "", categories: cats, links: { instagram: "", whatsapp: "", review: "" }, theme: null, sub: sub });
+    var planKey = $("aPlan").value, tier = $("aTier").value === "premium" ? "premium" : "standard";
+    var sub = PERIODS[planKey] ? { plan: planKey, tier: tier, paidUntil: nextDue(null, planKey), paidOn: Date.now(), amount: priceOf(tier, planKey) } : null;
+    var doc = { name: name, tagline: "", categories: cats, links: { instagram: "", whatsapp: "", review: "" }, theme: null, sub: sub, tier: tier };
+    if (tier === "premium") { doc.ordering = true; doc.tables = 10; doc.loyalty = { on: false, goal: 10, reward: "" }; doc.slides = []; }
+    b.set(fs.doc(db, "restaurants", id), doc);
     b.set(fs.doc(db, "owners", id), { emails: list });
     if (sample) {
       SAMPLE.items.forEach(function (it, i) {

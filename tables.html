@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Print QR codes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: controls on top, then a grid of table cards. Each card is A6 (105 x 148 mm) so four fit on an A4 sheet, or one fills an A5 card. Sizes inside a card are in em, so the card scales. */
+:root {
+  --bg: #FFF1DC; --surface: #FFF8EC; --ink: #2A160E; --muted: #7B5B4C; --line: #EBCFA9;
+  --bar: #8E1409; --saffron: #F4A300; --on-saffron: #2A160E; --field: #FFFDF8; --bad: #B5200F;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1D110B; --surface: #2A1912; --ink: #FBEAD3; --muted: #C9A892; --line: #4A3226; --bar: #5E1209; --saffron: #FFB830; --field: #231610; --bad: #FF7A5C; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+[hidden] { display: none !important; }
+h1, h2, p { margin: 0; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-left, 0px)); }
+.ui { padding-block: 22px 8px; display: flex; flex-direction: column; gap: 14px; }
+.ui h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.9rem; letter-spacing: -0.02em; }
+.muted { color: var(--muted); font-size: 0.92rem; }
+.ctl { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.ctl > div { min-width: 150px; }
+label { display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 4px; }
+input, select { font: inherit; color: var(--ink); width: 100%; min-height: 44px; padding: 9px 12px; background: var(--field); border: 1.5px solid var(--line); border-radius: 10px; }
+.btn { font: inherit; font-weight: 700; font-size: 0.95rem; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.btn.primary { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.btn.small { min-height: 38px; font-size: 0.85rem; padding: 0 12px; }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+.note { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.err { color: var(--bad); font-weight: 600; }
+
+.grid { display: flex; flex-wrap: wrap; gap: 18px; padding-block: 12px 40px; }
+.cell { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.cell .btn { align-self: stretch; }
+
+/* One card, A6. */
+.card {
+  --k: 1;
+  font-size: calc(4mm * var(--k));
+  width: 26.25em; height: 37em;
+  background: #FFFFFF; color: #1B1B1B;
+  border-radius: 1.2em; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  font-family: var(--font-body);
+  box-shadow: 0 0.2em 1.2em rgba(0, 0, 0, 0.18);
+}
+.card .band { width: 100%; background: var(--cbar, #8E1409); color: var(--con, #FFF8EF); padding: 1.3em 1.2em 1.1em; display: flex; flex-direction: column; align-items: center; gap: 0.5em; text-align: center; }
+.card .logo { width: 4.6em; height: 4.6em; border-radius: 50%; background: #FFFFFF; display: grid; place-items: center; overflow: hidden; }
+.card .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.card .nm { font-family: var(--font-display); font-weight: 800; font-size: 1.7em; line-height: 1.05; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.card .ask { font-family: var(--font-display); font-weight: 800; font-size: 1.55em; margin-top: 0.7em; color: var(--cbar, #8E1409); }
+.card canvas { width: 17.5em; height: 17.5em; margin-top: 0.5em; display: block; }
+.card .tbl { margin-top: 0.7em; background: var(--cacc, #F4A300); color: var(--coa, #2A160E); font-family: var(--font-display); font-weight: 800; font-size: 1.9em; line-height: 1; padding: 0.3em 1.1em; border-radius: 999px; }
+.card .ft { margin-top: auto; padding-bottom: 0.9em; font-size: 0.72em; color: #6A6A6A; letter-spacing: 0.04em; }
+
+@media print {
+  @page { margin: 0; }
+  body { background: #FFF; }
+  .ui, .cell .btn, .note { display: none !important; }
+  .wrap { max-width: none; padding: 0; }
+  .grid { padding: 0; gap: 0; display: block; }
+  .cell { display: inline-block; vertical-align: top; }
+  .card { box-shadow: none; border-radius: 0; outline: 0.2mm dashed #BBB; outline-offset: -0.2mm; }
+  body.sheet .cell { width: 105mm; height: 148mm; }
+  body.page .cell { display: block; width: 148mm; height: 210mm; page-break-after: always; }
+  body.page .card { --k: 1.4095; }
+}
+</style>
+<style id="pageRule">@page { size: A4; }</style>
+</head>
+<body class="sheet">
+<div class="wrap">
+  <section class="ui">
+    <h1 id="ttl">QR codes</h1>
+    <p class="muted" id="sub"></p>
+    <div id="msg" class="note" hidden></div>
+    <div class="ctl" id="ctl" hidden>
+      <div id="tblBox"><label for="nTables">Number of tables</label><input id="nTables" type="number" min="1" max="99" value="10" inputmode="numeric"></div>
+      <div><label for="layout">Print layout</label>
+        <select id="layout"><option value="sheet">4 cards on an A4 sheet</option><option value="page">1 big card per page (A5)</option></select></div>
+      <button id="print" class="btn primary" type="button">Print all</button>
+    </div>
+    <p class="muted" id="hint" hidden>Tip: in the print window choose "Save as PDF" to keep a copy, and turn off "Headers and footers".</p>
+  </section>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script type="module">
+import { RID, start } from "./firebase-config.js";
+import { drawQR } from "./qr.js";
+import { themeVars, validTheme, DEFAULT_THEME, isPremium, safeImg } from "./shared.js";
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+var rest = null, logoImg = null;
+
+(async function () {
+  try {
+    var F = await start({});
+    var snap = await F.fs.getDoc(F.fs.doc(F.db, "restaurants", RID));
+    if (!snap.exists()) { say("We could not find this cafe. Check the link."); return; }
+    rest = snap.data();
+  } catch (e) { say("Could not load. Check your internet and refresh."); return; }
+  var src = safeImg(rest.logo);
+  if (src) {
+    logoImg = await new Promise(function (res) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = src; });
+  }
+  $("ttl").textContent = (rest.name || "Cafe") + " QR codes";
+  var prem = isPremium(rest);
+  $("sub").textContent = prem ? "One card per table. Customers scan, see the menu and order from that table." : "Your menu QR code. Table QR codes with ordering are part of the Premium plan.";
+  $("tblBox").hidden = !prem;
+  $("nTables").value = Math.max(1, Math.min(99, parseInt(rest.tables, 10) || 10));
+  $("ctl").hidden = false; $("hint").hidden = false;
+  draw();
+})();
+
+function say(t) { var m = $("msg"); m.textContent = t; m.hidden = false; m.className = "note err"; }
+
+function link(t) {
+  var u = new URL("index.html", location.href);
+  u.searchParams.set("r", RID);
+  if (t) u.searchParams.set("t", t);
+  return u.href;
+}
+
+function draw() {
+  var prem = isPremium(rest);
+  var n = prem ? Math.max(1, Math.min(99, parseInt($("nTables").value, 10) || 1)) : 0;
+  var th = themeVars(validTheme(rest.theme) || DEFAULT_THEME).vars;
+  var cells = [];
+  if (prem) for (var i = 1; i <= n; i++) cells.push({ t: String(i), label: "Table " + i });
+  else cells.push({ t: "", label: "" });
+  $("grid").innerHTML = cells.map(function (c, i) {
+    return '<div class="cell"><div class="card" style="--cbar:' + th["--bar"] + ";--con:" + th["--on-bar"] + ";--cacc:" + th["--saffron"] + ";--coa:" + th["--on-saffron"] + '">' +
+      '<div class="band">' + (logoImg ? '<div class="logo"><img alt="" src="' + esc(logoImg.src) + '"></div>' : "") + '<div class="nm">' + esc(rest.name || "Menu") + "</div></div>" +
+      '<div class="ask">' + (prem ? "Scan to order" : "Scan for our menu") + "</div>" +
+      '<canvas data-i="' + i + '" aria-label="QR code' + (c.label ? " for " + esc(c.label) : "") + '"></canvas>' +
+      (c.label ? '<div class="tbl">' + esc(c.label) + "</div>" : "") +
+      '<div class="ft">Menu by Brand Boost Studio</div></div>' +
+      '<button class="btn small" type="button" data-dl="' + i + '">Download QR image</button></div>';
+  }).join("");
+  Array.prototype.forEach.call($("grid").querySelectorAll("canvas"), function (cv) {
+    var c = cells[+cv.dataset.i];
+    drawQR(cv, link(c.t), { size: 720, logo: logoImg || null, dark: "#111111" });
+  });
+  cells._ = cells; window.__cells = cells;
+}
+
+$("nTables").addEventListener("input", function () { if (rest) draw(); });
+$("layout").addEventListener("change", function () {
+  var v = $("layout").value;
+  document.body.className = v;
+  $("pageRule").textContent = v === "page" ? "@page { size: A5; }" : "@page { size: A4; }";
+});
+$("print").addEventListener("click", function () { window.print(); });
+$("grid").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-dl]");
+  if (!b) return;
+  var cv = $("grid").querySelector('canvas[data-i="' + b.dataset.dl + '"]');
+  var c = window.__cells[+b.dataset.dl];
+  var a = document.createElement("a");
+  a.download = (RID + (c.t ? "-table-" + c.t : "-menu") + "-qr.png");
+  a.href = cv.toDataURL("image/png");
+  a.click();
+});
+</script>
+</body>
+</html>

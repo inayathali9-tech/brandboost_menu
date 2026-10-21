@@ -173,6 +173,17 @@ input[type="color"] { padding: 4px; cursor: pointer; }
 .pv-tag { align-self: flex-start; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--saffron); color: var(--on-saffron); }
 .pv-price { font-family: var(--font-display); font-weight: 800; color: var(--price); }
 
+.slide { display: grid; grid-template-columns: 96px 1fr 44px; gap: 10px; align-items: start; padding: 10px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--field); }
+.slide .thumb { width: 96px; height: 54px; border-radius: 8px; font-size: 0.7rem; background: var(--line); color: var(--muted); text-align: center; padding: 2px; }
+.slide .x { min-height: 44px; border-radius: 10px; border: 1.5px solid var(--line); background: transparent; color: var(--bad); font-size: 1.3rem; cursor: pointer; }
+.logoRow { display: flex; gap: 14px; align-items: center; }
+.logoBox { flex: none; width: 84px; height: 84px; border-radius: 50%; border: 1.5px solid var(--line); background: #fff; display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: 0.75rem; text-align: center; }
+.logoBox img { width: 100%; height: 100%; object-fit: contain; }
+.feat { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 0.92rem; }
+.opt { display: flex; align-items: center; gap: 10px; }
+.opt input[type="checkbox"] { width: 22px; min-height: 0; height: 22px; accent-color: var(--price); }
+.opt label { margin: 0; }
+
 /* Dialog sheets */
 dialog {
   width: min(92vw, 520px); max-height: 90vh; padding: 0;
@@ -229,6 +240,8 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
     <div class="wrap">
       <span class="ttl">Menu Panel</span>
       <a class="btn small" id="viewLink" href="index.html" target="_blank" rel="noopener">View menu</a>
+      <a class="btn small" id="posLink" href="pos.html" target="_blank" rel="noopener" hidden>Orders</a>
+      <a class="btn small" id="qrLink" href="tables.html" target="_blank" rel="noopener">QR codes</a>
       <button id="signOut" class="btn small" type="button">Log out</button>
       <span class="who" id="who"></span>
     </div>
@@ -257,6 +270,53 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
         </div>
         <p class="muted">Leave a box empty to hide that button.</p>
         <button id="saveR" class="btn primary" type="button" style="align-self:flex-start">Save details</button>
+      </section>
+
+      <section class="card" id="logoCard">
+        <h2 class="sec-title">Logo</h2>
+        <p class="muted">Shows on your menu and in the middle of your QR codes. A square picture on a plain background works best.</p>
+        <div class="logoRow">
+          <div class="logoBox" id="logoBox">No logo</div>
+          <div class="stack" style="gap:8px">
+            <label class="btn small" for="logoFile" style="margin:0">Upload logo</label>
+            <input id="logoFile" type="file" accept="image/*" hidden>
+            <button id="logoRm" class="btn small ghost" type="button">Remove logo</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="premCard">
+        <div id="upgrade" class="stack" hidden>
+          <h2 class="sec-title">Upgrade to Premium</h2>
+          <p class="muted" id="upPrice"></p>
+          <ul class="feat" id="upList"></ul>
+          <a id="upBtn" class="btn primary" target="_blank" rel="noopener" style="align-self:flex-start">Ask to upgrade on WhatsApp</a>
+        </div>
+        <div id="premSet" class="stack" hidden>
+          <h2 class="sec-title">Ordering and loyalty</h2>
+          <div class="opt"><input id="oOrd" type="checkbox"><label for="oOrd">Take orders from customers</label></div>
+          <div style="max-width:200px"><label for="oTables">Number of tables</label><input id="oTables" type="number" min="1" max="99" inputmode="numeric"></div>
+          <fieldset>
+            <legend>Loyalty stamp card</legend>
+            <div class="opt"><input id="oLoy" type="checkbox"><label for="oLoy">Give stamps for paid orders</label></div>
+            <div class="two">
+              <div><label for="oGoal">Stamps for a reward</label><input id="oGoal" type="number" min="2" max="30" inputmode="numeric"></div>
+              <div><label for="oReward">Reward</label><input id="oReward" maxlength="40" placeholder="Free coffee"></div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Photo slider at the top of your menu</legend>
+            <div id="slideRows" class="stack" style="gap:10px"></div>
+            <button id="addSlide" class="btn small ghost" type="button" style="align-self:flex-start">+ Add slide</button>
+            <p class="muted">Up to 4 slides. With no slides, your Bestseller dishes are shown automatically.</p>
+          </fieldset>
+          <p id="premErr" class="err" role="alert" hidden></p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="savePrem" class="btn primary" type="button">Save</button>
+            <a id="posBtn" class="btn" target="_blank" rel="noopener">Open orders panel</a>
+            <a id="qrBtn" class="btn" target="_blank" rel="noopener">Print table QR codes</a>
+          </div>
+        </div>
       </section>
 
       <section class="card" id="appearance">
@@ -349,7 +409,7 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
-import { PLANS, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate } from "./shared.js";
+import { TIERS, tierOf, isPremium, PREMIUM_FEATURES, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate, shrinkPhoto, safeImg } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -412,8 +472,8 @@ function onUser(u) {
   unsubs.forEach(function (f) { f(); });
   unsubs = [];
   ready.r = ready.i = false;
-  restaurant = null; items = []; themeDirty = false;
-  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID + "&fresh=1"; subscribe(); }
+  restaurant = null; items = []; themeDirty = false; premDirty = false;
+  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID + "&fresh=1"; $("posLink").href = "pos.html?r=" + RID; $("qrLink").href = "tables.html?r=" + RID; subscribe(); }
 }
 $("fLogin").addEventListener("submit", async function (e) {
   e.preventDefault();
@@ -459,6 +519,7 @@ function draw() {
   if (st.state === "locked") return;
   if (!themeDirty) setPickers(validTheme(restaurant.theme) || DEFAULT_THEME);
   else drawPreview();
+  drawLogo(); drawPrem();
   if (document.activeElement !== $("rName")) $("rName").value = restaurant.name || "";
   if (document.activeElement !== $("rTag")) $("rTag").value = restaurant.tagline || "";
   var lk = restaurant.links || {};
@@ -516,12 +577,13 @@ function drawSub(st) {
   var urgent = st.state === "grace" || st.state === "locked" || (st.state === "active" && st.daysLeft <= 7);
   card.style.order = urgent ? "-1" : "1";
   card.hidden = false;
-  var m = PLANS.monthly, y = PLANS.yearly;
+  var tl = TIERS[tierOf(restaurant)];
+  var m = { label: "Monthly", price: tl.monthly, per: "month" }, y = { label: "Yearly", price: tl.yearly };
   var saving = m.price * 12 - y.price;
   var last = restaurant.sub && restaurant.sub.paidOn ? '<p class="muted">Last payment noted: ' + fmtDate(restaurant.sub.paidOn) + ".</p>" : "";
   var wa = "https://wa.me/" + PAY_WHATSAPP + "?text=" + encodeURIComponent("Hi Brand Boost Studio, I have paid for the menu of " + (restaurant.name || RID) + " (" + RID + "). Screenshot attached.");
   card.innerHTML =
-    '<h2 class="sec-title">Subscription</h2>' +
+    '<h2 class="sec-title">Subscription: ' + tl.label + "</h2>" +
     "<p>" + pill + esc(line) + "</p>" + last +
     '<div class="plans">' +
       '<div class="plan"><span class="pl">' + m.label + "</span><b>₹" + m.price.toLocaleString("en-IN") + '</b><span class="muted">per ' + m.per + "</span></div>" +
@@ -584,6 +646,91 @@ $("saveTheme").addEventListener("click", async function () {
 });
 $("resetTheme").addEventListener("click", async function () {
   if (await run(F.fs.updateDoc(rRef(), { theme: null }), "Back to the default colors")) { themeDirty = false; setPickers(DEFAULT_THEME); }
+});
+
+// ---------- logo
+function drawLogo() {
+  var u = safeImg(restaurant.logo);
+  $("logoBox").innerHTML = u ? '<img alt="" src="' + esc(u) + '">' : "No logo";
+}
+$("logoFile").addEventListener("change", async function () {
+  var f = this.files && this.files[0];
+  this.value = "";
+  if (!f) return;
+  var img;
+  try { img = await shrinkPhoto(f, 256, 256, 60000, { contain: true, png: true }); }
+  catch (e) { toast("Could not read that picture. Try a different one.", true); return; }
+  run(F.fs.updateDoc(rRef(), { logo: img }), "Logo saved");
+});
+$("logoRm").addEventListener("click", function () { run(F.fs.updateDoc(rRef(), { logo: "" }), "Logo removed"); });
+
+// ---------- premium: upgrade card, ordering, loyalty, photo slider
+var premDirty = false, slides = [];
+function drawPrem() {
+  var prem = isPremium(restaurant);
+  $("upgrade").hidden = prem;
+  $("premSet").hidden = !prem;
+  $("posLink").hidden = !prem;
+  if (!prem) {
+    var P = TIERS.premium, S = TIERS.standard;
+    $("upPrice").textContent = "Premium is ₹" + P.monthly + " per month or ₹" + P.yearly.toLocaleString("en-IN") + " per year. You are on Standard (₹" + S.monthly + " per month or ₹" + S.yearly.toLocaleString("en-IN") + " per year).";
+    $("upList").innerHTML = PREMIUM_FEATURES.map(function (f) { return "<li>" + esc(f) + "</li>"; }).join("");
+    $("upBtn").href = "https://wa.me/" + PAY_WHATSAPP + "?text=" + encodeURIComponent("Hi Brand Boost Studio, I would like to upgrade the menu of " + (restaurant.name || RID) + " (" + RID + ") to Premium.");
+    return;
+  }
+  $("posBtn").href = "pos.html?r=" + RID;
+  $("qrBtn").href = "tables.html?r=" + RID;
+  if (premDirty) return;
+  $("oOrd").checked = restaurant.ordering !== false;
+  $("oTables").value = restaurant.tables || 10;
+  var lo = restaurant.loyalty || {};
+  $("oLoy").checked = !!lo.on;
+  $("oGoal").value = lo.goal || 10;
+  $("oReward").value = lo.reward || "";
+  slides = (restaurant.slides || []).map(function (x) { return { img: x.img || "", title: x.title || "", sub: x.sub || "" }; });
+  drawSlides();
+}
+function drawSlides() {
+  $("slideRows").innerHTML = slides.map(function (s, i) {
+    var u = safeImg(s.img);
+    return '<div class="slide"><div class="thumb">' + (u ? '<img alt="" src="' + esc(u) + '" style="width:100%;height:100%;object-fit:cover;border-radius:6px">' : "No photo") + "</div>" +
+      '<div class="stack" style="gap:8px"><label class="btn small" for="sf' + i + '" style="margin:0">' + (u ? "Change photo" : "Upload photo") + "</label>" +
+      '<input id="sf' + i + '" type="file" accept="image/*" data-i="' + i + '" hidden>' +
+      '<input data-i="' + i + '" data-k="title" maxlength="40" placeholder="Title, like Chef special" value="' + esc(s.title) + '" aria-label="Slide title">' +
+      '<input data-i="' + i + '" data-k="sub" maxlength="60" placeholder="Small line (optional)" value="' + esc(s.sub) + '" aria-label="Slide small line"></div>' +
+      '<button class="x" type="button" data-i="' + i + '" aria-label="Remove this slide">×</button></div>';
+  }).join("");
+  $("addSlide").hidden = slides.length >= 4;
+}
+$("premSet").addEventListener("input", function (e) {
+  premDirty = true;
+  var t = e.target;
+  if (t.dataset && t.dataset.k) slides[+t.dataset.i][t.dataset.k] = t.value;
+});
+$("slideRows").addEventListener("change", async function (e) {
+  var t = e.target;
+  if (t.type !== "file") return;
+  var f = t.files && t.files[0];
+  if (!f) return;
+  try { slides[+t.dataset.i].img = await shrinkPhoto(f, 480, 270, 45000); premDirty = true; drawSlides(); }
+  catch (x) { toast("Could not read that picture. Try a different one.", true); }
+});
+$("slideRows").addEventListener("click", function (e) {
+  var x = e.target.closest(".x");
+  if (!x) return;
+  slides.splice(+x.dataset.i, 1); premDirty = true; drawSlides();
+});
+$("addSlide").addEventListener("click", function () { slides.push({ img: "", title: "", sub: "" }); premDirty = true; drawSlides(); });
+$("savePrem").addEventListener("click", async function () {
+  $("premErr").hidden = true;
+  var tables = parseInt($("oTables").value, 10);
+  if (!(tables >= 1 && tables <= 99)) return formErr("premErr", "Number of tables must be between 1 and 99.");
+  var on = $("oLoy").checked, goal = parseInt($("oGoal").value, 10), reward = $("oReward").value.trim();
+  if (on && !(goal >= 2 && goal <= 30)) return formErr("premErr", "Stamps for a reward must be between 2 and 30.");
+  if (on && !reward) return formErr("premErr", "Enter the reward, like Free coffee.");
+  if (slides.some(function (s) { return !safeImg(s.img); })) return formErr("premErr", "Add a photo to every slide, or remove the empty slide.");
+  var sl = slides.map(function (s) { return { img: s.img, title: String(s.title || "").trim(), sub: String(s.sub || "").trim() }; });
+  if (await run(F.fs.updateDoc(rRef(), { ordering: $("oOrd").checked, tables: tables, loyalty: { on: on, goal: goal >= 2 ? goal : 10, reward: reward }, slides: sl }), "Saved")) premDirty = false;
 });
 
 $("cats").addEventListener("click", function (e) {
