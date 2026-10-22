@@ -125,7 +125,11 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
     </section>
 
     <div id="main" class="stack" hidden>
-      <button id="addCafe" class="btn primary" type="button" style="align-self:flex-start">+ Add cafe</button>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <button id="addCafe" class="btn primary" type="button">+ Add cafe</button>
+        <button id="convAll" class="btn" type="button">Convert all cafes</button>
+      </div>
+      <p id="convInfo" class="muted" role="status" hidden></p>
       <div id="cafes" class="stack"></div>
     </div>
   </main>
@@ -461,6 +465,30 @@ $("fOwners").addEventListener("submit", async function (e) {
 var idTouched = false;
 $("aName").addEventListener("input", function () { if (!idTouched) $("aId").value = slug($("aName").value); });
 $("aId").addEventListener("input", function () { idTouched = true; });
+// One-time: build the combined menu (1 read per customer view) for every cafe that does not have one yet.
+$("convAll").addEventListener("click", async function () {
+  var info = $("convInfo"), fs = F.fs, db = F.db, done = 0, had = 0, empty = 0, failed = 0;
+  var list = cafes.slice();
+  if (!list.length) return;
+  $("convAll").disabled = true; info.hidden = false;
+  for (var i = 0; i < list.length; i++) {
+    var c = list[i];
+    info.textContent = "Checking " + (i + 1) + " of " + list.length + ": " + c.name + "...";
+    try {
+      var m = await fs.getDoc(fs.doc(db, "restaurants", c.id, "menu", "all"));
+      if (m.exists() && Array.isArray(m.data().items)) { had++; continue; }
+      var s = await fs.getDocs(fs.collection(db, "restaurants", c.id, "items"));
+      if (s.empty) { empty++; continue; }
+      var all = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+      var items = menuItems(all);
+      if (JSON.stringify(items).length > 900000) { failed++; continue; }
+      await fs.setDoc(fs.doc(db, "restaurants", c.id, "menu", "all"), { items: items, updatedAt: fs.serverTimestamp() });
+      done++;
+    } catch (x) { failed++; }
+  }
+  info.textContent = "Done. Converted " + done + ", already converted " + had + (empty ? ", no dishes yet " + empty : "") + (failed ? ", failed " + failed + " (try again)" : "") + ".";
+  $("convAll").disabled = false;
+});
 $("addCafe").addEventListener("click", function () {
   idTouched = false;
   $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty"; $("aPlan").value = "none"; $("aTier").value = "standard";
