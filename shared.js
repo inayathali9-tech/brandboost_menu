@@ -197,3 +197,10 @@ export function stampState(d, days) {
   if (Date.now() > until) return { n: 0, expired: true, lost: n, until: until };
   return { n: n, expired: false, lost: 0, until: until };
 }
+
+// The combined menu: every dish in one document (restaurants/{rid}/menu/all), so a customer's menu view costs 1 read instead of one per dish.
+export function menuItems(list) {
+  return (list || []).map(function (it) {
+    return { id: it.id, cat: it.cat, n: it.n, d: it.d || "", p: (it.p || []).map(function (x) { return { l: x.l || "", v: Number(x.v) }; }), t: it.t || "", sold: !!it.sold, order: Number(it.order) || 0 };
+  }).sort(function (a, b) { return a.order - b.order || String(a.id).localeCompare(String(b.id)); });
+}

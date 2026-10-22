@@ -926,11 +926,15 @@ async function resumeOrder() {
     var fs = F.fs, db = F.db;
     var r = await fs.getDoc(fs.doc(db, "restaurants", RID));
     if (!r.exists()) { store("menu:" + RID, null); notFound(); return; }
-    var s = await fs.getDocs(fs.collection(db, "restaurants", RID, "items"));
-    var rd = r.data();
+    var rd = r.data(), list = null;
+    try { var m = await fs.getDoc(fs.doc(db, "restaurants", RID, "menu", "all")); if (m.exists() && Array.isArray(m.data().items)) list = m.data().items; } catch (x) { list = null; }
+    if (!list) {   // cafes not converted yet: read the dishes one by one
+      var s = await fs.getDocs(fs.collection(db, "restaurants", RID, "items"));
+      list = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+    }
     var data = {
       name: rd.name, tagline: rd.tagline, categories: rd.categories || [],
-      items: s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }),
+      items: list,
       links: rd.links, theme: rd.theme || null, sub: rd.sub || null,
       tier: rd.tier || "standard", logo: rd.logo || "", slides: rd.slides || [], ordering: rd.ordering !== false,
       tables: rd.tables || 0, loyalty: rd.loyalty || null

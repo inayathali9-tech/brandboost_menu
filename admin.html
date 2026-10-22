@@ -405,8 +405,8 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
-import { RID, start } from "./firebase-config.js";
-import { TIERS, tierOf, isPremium, PREMIUM_FEATURES, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate, shrinkPhoto, safeImg } from "./shared.js";
+import { RID, start, HAS_R, routeByEmail } from "./firebase-config.js";
+import { TIERS, tierOf, isPremium, PREMIUM_FEATURES, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate, shrinkPhoto, safeImg, menuItems } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -455,6 +455,7 @@ function dRef(id) { return F.fs.doc(F.db, "restaurants", RID, "items", id); }
 function rRef() { return F.fs.doc(F.db, "restaurants", RID); }
 
 // ---------- start and login
+setTimeout(function () { var b = document.getElementById("boot"); if (b && !b.hidden) b.textContent = "Still loading. Your internet may be blocking Google's servers. Try mobile data or another network, then refresh."; }, 15000);
 (async function init() {
   try { F = await start({ auth: true }); }
   catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
@@ -466,6 +467,8 @@ function onUser(u) {
   $("boot").hidden = true;
   $("login").hidden = !!u;
   $("app").hidden = !u;
+  if (u && !u.email) { $("login").hidden = false; $("app").hidden = true; return; }
+  if (u && !HAS_R) { $("login").hidden = true; $("app").hidden = true; routeByEmail(F, u.email, "admin.html"); return; }
   unsubs.forEach(function (f) { f(); });
   unsubs = [];
   ready.r = ready.i = false;
@@ -496,9 +499,27 @@ function subscribe() {
   unsubs.push(fs.onSnapshot(rRef(), function (s) {
     restaurant = s.exists() ? s.data() : null; ready.r = true; draw();
   }, function (e) { toast(friendly(e), true); }));
+  menuDoc = null; menuReady = false; lastSig = "";
+  unsubs.push(fs.onSnapshot(fs.doc(F.db, "restaurants", RID, "menu", "all"), function (s) {
+    menuDoc = s.exists() ? s.data() : null; menuReady = true; syncMenu();
+  }, function () { menuReady = false; }));
   unsubs.push(fs.onSnapshot(fs.collection(F.db, "restaurants", RID, "items"), function (s) {
-    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw();
+    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw(); syncMenu();
   }, function (e) { toast(friendly(e), true); }));
+}
+
+// Keeps the combined menu (what customers read) equal to the dishes below. Runs after every change.
+var menuDoc = null, menuReady = false, lastSig = "";
+function syncMenu() {
+  if (!ready.i || !menuReady) return;
+  var list = menuItems(items), sig = JSON.stringify(list);
+  if (!list.length && !menuDoc) return;
+  if (menuDoc && JSON.stringify(menuDoc.items) === sig) { lastSig = sig; return; }
+  if (sig === lastSig) return;
+  if (sig.length > 900000) { toast("The menu is too big to publish. Remove some dishes.", true); return; }
+  lastSig = sig;
+  F.fs.setDoc(F.fs.doc(F.db, "restaurants", RID, "menu", "all"), { items: list, updatedAt: F.fs.serverTimestamp() })
+    .catch(function () { lastSig = ""; toast("Could not update the public menu. Check your internet and try again.", true); });
 }
 
 // ---------- drawing

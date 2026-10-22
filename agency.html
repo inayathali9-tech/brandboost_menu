@@ -197,12 +197,28 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
   </form>
 </dialog>
 
+<dialog id="dlgPaste">
+  <form id="fPaste" novalidate>
+    <h2 id="pasteTitle">Paste menu</h2>
+    <div><label for="pmText">One dish per line</label>
+      <textarea id="pmText" rows="10" autocapitalize="none" spellcheck="false" placeholder="Chicken Mandi, Mandi, Half 349/Full 649, Slow cooked rice&#10;Irani Chai, Drinks, 30"></textarea>
+      <p class="muted" style="margin-top:4px">Format: <b>Dish name, Category, Price, Description, Label</b>. Description and Label are optional (Label: Bestseller, Spicy, Sharing or New). Several sizes: <b>Half 349/Full 649</b>. Pasting from Excel or using | between columns also works. New categories are created automatically. Dishes already on the menu are skipped.</p></div>
+    <div id="pmInfo" class="muted" role="status"></div>
+    <p id="pmErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelPaste" class="btn ghost" type="button">Close</button>
+      <button id="checkPaste" class="btn" type="button">Check</button>
+      <button id="doPaste" class="btn primary" type="submit" disabled>Import</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
 import { start } from "./firebase-config.js";
 import { SAMPLE } from "./sample-menu.js";
-import { TIERS, PERIODS, priceOf, tierOf, subStatus, nextDue, addMonths, endOfDay, fmtDate, rupees } from "./shared.js";
+import { TIERS, PERIODS, priceOf, tierOf, subStatus, nextDue, addMonths, endOfDay, fmtDate, rupees, menuItems } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -256,6 +272,7 @@ function authMsg(e) {
   return "Could not log in. Try again.";
 }
 
+setTimeout(function () { var b = document.getElementById("boot"); if (b && !b.hidden) b.textContent = "Still loading. Your internet may be blocking Google's servers. Try mobile data or another network, then refresh."; }, 15000);
 (async function init() {
   try { F = await start({ auth: true }); }
   catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
@@ -329,6 +346,7 @@ function draw() {
         (c.tier === "premium" ? '<a class="btn small" href="pos.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Orders</a>' : "") +
         '<a class="btn small" href="tables.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">QR codes</a>' +
         '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
+        '<button class="btn small" type="button" data-act="paste" data-id="' + esc(c.id) + '">Paste menu</button>' +
         '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +
       "</div></section>";
   }).join("") : '<p class="muted">No cafes yet. Tap Add cafe to create the first one.</p>';
@@ -346,6 +364,8 @@ $("cafes").addEventListener("click", async function (e) {
     openPaid(id);
   } else if (b.dataset.act === "tier") {
     openTier(id);
+  } else if (b.dataset.act === "paste") {
+    openPaste(id);
   } else if (b.dataset.act === "owners") {
     ownerFor = id;
     var c = cafes.filter(function (x) { return x.id === id; })[0];
@@ -473,13 +493,121 @@ $("fCafe").addEventListener("submit", async function (e) {
     b.set(fs.doc(db, "restaurants", id), doc);
     b.set(fs.doc(db, "owners", id), { emails: list });
     if (sample) {
+      var made = [];
       SAMPLE.items.forEach(function (it, i) {
-        b.set(fs.doc(fs.collection(db, "restaurants", id, "items")), { cat: it.cat, n: it.n, d: it.d, p: it.p, t: it.t || "", img: "", sold: false, order: i });
+        var ref = fs.doc(fs.collection(db, "restaurants", id, "items"));
+        var row = { cat: it.cat, n: it.n, d: it.d, p: it.p, t: it.t || "", img: "", sold: false, order: i };
+        b.set(ref, row);
+        made.push(Object.assign({ id: ref.id }, row));
       });
+      b.set(fs.doc(db, "restaurants", id, "menu", "all"), { items: menuItems(made), updatedAt: fs.serverTimestamp() });
     }
     if (await run(b.commit(), "Cafe created")) $("dlgCafe").close();
   } catch (x) { formErr("cafeErr", friendly(x)); }
   finally { $("saveCafe").disabled = false; }
+});
+
+// ---------- paste a whole menu
+var pasteFor = null, plan = null;
+var TAGS = { bestseller: "Bestseller", spicy: "Spicy", sharing: "Sharing", "new": "New" };
+function openPaste(id) {
+  pasteFor = id; plan = null;
+  var c = cafes.filter(function (x) { return x.id === id; })[0];
+  $("pasteTitle").textContent = "Paste menu for " + (c ? c.name : id);
+  $("pmText").value = ""; $("pmInfo").textContent = ""; $("pmErr").hidden = true; $("doPaste").disabled = true;
+  $("dlgPaste").showModal();
+}
+$("cancelPaste").addEventListener("click", function () { $("dlgPaste").close(); });
+$("pmText").addEventListener("input", function () { plan = null; $("doPaste").disabled = true; });
+function parsePrices(txt) {
+  var out = [], parts = String(txt || "").split(/[\/;]/);
+  for (var i = 0; i < parts.length; i++) {
+    var m = parts[i].trim().match(/^(.*?)[\s:=\-]*(?:₹|rs\.?\s*)?\s*(\d+(?:\.\d+)?)$/i);
+    if (!m || !(Number(m[2]) > 0)) return null;
+    out.push({ l: m[1].replace(/[:=\-\s]+$/, "").trim().slice(0, 20), v: Number(m[2]) });
+  }
+  return out.length ? out : null;
+}
+function splitLine(line) {
+  if (line.indexOf("\t") >= 0) return line.split("\t");
+  if (line.indexOf("|") >= 0) return line.split("|");
+  var p = line.split(",");
+  if (p.length <= 3) return p;
+  var last = p[p.length - 1].trim().toLowerCase();
+  if (TAGS[last]) return p.slice(0, 3).concat([p.slice(3, -1).join(","), p[p.length - 1]]);
+  return p.slice(0, 3).concat([p.slice(3).join(",")]);
+}
+async function buildPlan(id, text) {
+  var fs = F.fs, db = F.db, errors = [], rows = [];
+  var rs = await fs.getDoc(fs.doc(db, "restaurants", id));
+  if (!rs.exists()) throw new Error("This cafe could not be found.");
+  var cats = (rs.data().categories || []).map(function (c) { return Object.assign({}, c); });
+  var is = await fs.getDocs(fs.collection(db, "restaurants", id, "items"));
+  var existing = is.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+  var have = {}, maxOrder = -1;
+  existing.forEach(function (o) { have[o.cat + "|" + String(o.n).trim().toLowerCase()] = 1; maxOrder = Math.max(maxOrder, Number(o.order) || 0); });
+  var catByName = {}; cats.forEach(function (c) { catByName[String(c.name).trim().toLowerCase()] = c; });
+  var newCats = [], skipped = 0;
+  text.split(/\r?\n/).forEach(function (raw, ln) {
+    var line = raw.trim(); if (!line) return;
+    var f = splitLine(line).map(function (x) { return x.trim(); });
+    if (ln === 0 && f.length >= 3 && /^(dish|name|item)/i.test(f[0]) && !parsePrices(f[2])) return;   // header row
+    if (f.length < 3) return errors.push("Line " + (ln + 1) + ": needs name, category and price.");
+    var name = f[0].slice(0, 60), catName = f[1].slice(0, 40), pr = parsePrices(f[2]);
+    if (!name) return errors.push("Line " + (ln + 1) + ": dish name is empty.");
+    if (!catName) return errors.push("Line " + (ln + 1) + ": category is empty.");
+    if (!pr) return errors.push("Line " + (ln + 1) + ": could not read the price \"" + f[2] + "\".");
+    var tag = TAGS[String(f[4] || "").toLowerCase()] || "";
+    var key = catName.toLowerCase(), cat = catByName[key];
+    if (!cat) { cat = { id: slug(catName) + "-" + Math.random().toString(36).slice(2, 6), name: catName, blurb: "" }; catByName[key] = cat; newCats.push(cat); }
+    if (have[cat.id + "|" + name.toLowerCase()]) { skipped++; return; }
+    have[cat.id + "|" + name.toLowerCase()] = 1;
+    rows.push({ cat: cat.id, n: name, d: String(f[3] || "").slice(0, 140), p: pr, t: tag, sold: false });
+  });
+  return { id: id, text: text, cats: cats.concat(newCats), newCats: newCats, rows: rows, errors: errors, skipped: skipped, existing: existing, maxOrder: maxOrder };
+}
+$("checkPaste").addEventListener("click", async function () {
+  $("pmErr").hidden = true; plan = null; $("doPaste").disabled = true;
+  var text = $("pmText").value;
+  if (!text.trim()) return formErr("pmErr", "Paste the menu first.");
+  $("pmInfo").textContent = "Checking...";
+  try {
+    var p = await buildPlan(pasteFor, text);
+    var info = p.rows.length + " dishes ready to add";
+    if (p.newCats.length) info += ", " + p.newCats.length + " new categories (" + p.newCats.map(function (c) { return c.name; }).join(", ") + ")";
+    if (p.skipped) info += ". " + p.skipped + " already on the menu and skipped";
+    info += ".";
+    if (p.errors.length) info += " " + p.errors.length + " lines could not be read: " + p.errors.slice(0, 6).join(" ") + (p.errors.length > 6 ? " ..." : "");
+    $("pmInfo").textContent = info;
+    if (p.existing.length + p.rows.length > 600) return formErr("pmErr", "A menu can have at most 600 dishes.");
+    if (!p.rows.length) return;
+    plan = p; $("doPaste").disabled = false;
+  } catch (x) { $("pmInfo").textContent = ""; formErr("pmErr", friendly(x)); }
+});
+$("fPaste").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  if (!plan || plan.text !== $("pmText").value) return formErr("pmErr", "Tap Check again first.");
+  var fs = F.fs, db = F.db, p = plan, id = p.id;
+  $("doPaste").disabled = true; $("checkPaste").disabled = true; $("pmErr").hidden = true; $("pmInfo").textContent = "Importing " + p.rows.length + " dishes...";
+  try {
+    var added = p.rows.map(function (r, i) {
+      var ref = fs.doc(fs.collection(db, "restaurants", id, "items"));
+      return { ref: ref, row: Object.assign({ img: "", order: p.maxOrder + 1 + i }, r) };
+    });
+    if (p.newCats.length) await fs.updateDoc(fs.doc(db, "restaurants", id), { categories: p.cats });
+    for (var i = 0; i < added.length; i += 400) {
+      var b = fs.writeBatch(db);
+      added.slice(i, i + 400).forEach(function (a) { b.set(a.ref, a.row); });
+      await b.commit();
+    }
+    var all = p.existing.concat(added.map(function (a) { return Object.assign({ id: a.ref.id }, a.row); }));
+    var list = menuItems(all);
+    if (JSON.stringify(list).length > 900000) throw new Error("The menu is too big to publish.");
+    await fs.setDoc(fs.doc(db, "restaurants", id, "menu", "all"), { items: list, updatedAt: fs.serverTimestamp() });
+    toast(added.length + " dishes added");
+    $("dlgPaste").close();
+  } catch (x) { $("pmInfo").textContent = ""; formErr("pmErr", friendly(x)); }
+  finally { $("checkPaste").disabled = false; plan = null; }
 });
 </script>
 </body>
