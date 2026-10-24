@@ -188,6 +188,19 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
   </form>
 </dialog>
 
+<dialog id="dlgReview">
+  <form id="fReview" novalidate>
+    <h2 id="revTitle">Google review link</h2>
+    <div><label for="revUrl">Link</label><input id="revUrl" type="url" inputmode="url" maxlength="300" placeholder="https://g.page/r/.../review" autocapitalize="none">
+      <p class="muted" style="margin-top:4px">Customers see a "Review us on Google" button on the menu. Only you can set this. Leave it empty to hide the button.</p></div>
+    <p id="revErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelRev" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save link</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgOwners">
   <form id="fOwners" novalidate>
     <h2 id="ownTitle">Owners</h2>
@@ -312,7 +325,7 @@ function subscribe() {
     ownersOk = true; ready.o = true; draw();
   }, function () { ownersOk = false; ready.o = true; draw(); }));
   unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
-    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()) }; })
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()), review: ((d.data().links || {}).review) || "" }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
     ready.c = true; draw();
   }, function (e) { toast(friendly(e), true); }));
@@ -351,6 +364,7 @@ function draw() {
         '<a class="btn small" href="tables.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">QR codes</a>' +
         '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
         '<button class="btn small" type="button" data-act="paste" data-id="' + esc(c.id) + '">Paste menu</button>' +
+        '<button class="btn small" type="button" data-act="review" data-id="' + esc(c.id) + '">' + (c.review ? "Review link" : "Add review link") + "</button>" +
         '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +
       "</div></section>";
   }).join("") : '<p class="muted">No cafes yet. Tap Add cafe to create the first one.</p>';
@@ -370,6 +384,13 @@ $("cafes").addEventListener("click", async function (e) {
     openTier(id);
   } else if (b.dataset.act === "paste") {
     openPaste(id);
+  } else if (b.dataset.act === "review") {
+    reviewFor = id;
+    var rc = cafes.filter(function (x) { return x.id === id; })[0];
+    $("revTitle").textContent = "Google review link for " + (rc ? rc.name : id);
+    $("revUrl").value = rc ? rc.review : "";
+    $("revErr").hidden = true;
+    $("dlgReview").showModal();
   } else if (b.dataset.act === "owners") {
     ownerFor = id;
     var c = cafes.filter(function (x) { return x.id === id; })[0];
@@ -451,6 +472,20 @@ $("fTier").addEventListener("submit", async function (e) {
 });
 
 // ---------- owners
+var reviewFor = null;
+$("cancelRev").addEventListener("click", function () { $("dlgReview").close(); });
+$("fReview").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var u = $("revUrl").value.trim();
+  if (u && !/^https:\/\//i.test(u)) return formErr("revErr", "The link must start with https://");
+  var fs = F.fs, ref = fs.doc(F.db, "restaurants", reviewFor);
+  try {
+    var snap = await fs.getDoc(ref), lk = Object.assign({ instagram: "", whatsapp: "" }, (snap.data() || {}).links || {});
+    lk.review = u;
+    await fs.updateDoc(ref, { links: lk });
+    toast("Review link saved"); $("dlgReview").close();
+  } catch (x) { formErr("revErr", friendly(x)); }
+});
 $("cancelOwn").addEventListener("click", function () { $("dlgOwners").close(); });
 $("fOwners").addEventListener("submit", async function (e) {
   e.preventDefault();

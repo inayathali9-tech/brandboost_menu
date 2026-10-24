@@ -266,7 +266,6 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
         <div class="stack" style="gap:12px">
           <div><label for="rIg">Instagram profile</label><input id="rIg" maxlength="120" placeholder="@yourrestaurant or profile link" autocapitalize="none"></div>
           <div><label for="rWa">WhatsApp number</label><input id="rWa" inputmode="tel" maxlength="20" placeholder="10-digit number, like 9876543210"></div>
-          <div><label for="rRev">Google review link</label><input id="rRev" type="url" inputmode="url" maxlength="300" placeholder="https://"></div>
         </div>
         <p class="muted">Leave a box empty to hide that button.</p>
         <button id="saveR" class="btn primary" type="button" style="align-self:flex-start">Save details</button>
@@ -406,7 +405,7 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
 
 <script type="module">
 import { RID, start, HAS_R, routeByEmail } from "./firebase-config.js";
-import { TIERS, tierOf, isPremium, PREMIUM_FEATURES, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate, shrinkPhoto, safeImg } from "./shared.js";
+import { TIERS, tierOf, isPremium, PREMIUM_FEATURES, GRACE_DAYS, UPI_ID, PAY_WHATSAPP, DEFAULT_THEME, PRESETS, validTheme, applyTheme, contrast, subStatus, fmtDate, shrinkPhoto, safeImg, menuItems } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(t) {
@@ -499,9 +498,27 @@ function subscribe() {
   unsubs.push(fs.onSnapshot(rRef(), function (s) {
     restaurant = s.exists() ? s.data() : null; ready.r = true; draw();
   }, function (e) { toast(friendly(e), true); }));
+  menuDoc = null; menuReady = false; lastSig = "";
+  unsubs.push(fs.onSnapshot(fs.doc(F.db, "restaurants", RID, "menu", "all"), function (s) {
+    menuDoc = s.exists() ? s.data() : null; menuReady = true; syncMenu();
+  }, function () { menuReady = false; }));
   unsubs.push(fs.onSnapshot(fs.collection(F.db, "restaurants", RID, "items"), function (s) {
-    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw();
+    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw(); syncMenu();
   }, function (e) { toast(friendly(e), true); }));
+}
+
+// Keeps the combined menu (what customers read) equal to the dishes below. Runs after every change.
+var menuDoc = null, menuReady = false, lastSig = "";
+function syncMenu() {
+  if (!ready.i || !menuReady) return;
+  var list = menuItems(items), sig = JSON.stringify(list);
+  if (!list.length && !menuDoc) return;
+  if (menuDoc && JSON.stringify(menuDoc.items) === sig) { lastSig = sig; return; }
+  if (sig === lastSig) return;
+  if (sig.length > 900000) { toast("The menu is too big to publish. Remove some dishes.", true); return; }
+  lastSig = sig;
+  F.fs.setDoc(F.fs.doc(F.db, "restaurants", RID, "menu", "all"), { items: list, updatedAt: F.fs.serverTimestamp() })
+    .catch(function () { lastSig = ""; toast("Could not update the public menu. Check your internet and try again.", true); });
 }
 
 // ---------- drawing
@@ -525,7 +542,6 @@ function draw() {
   var lk = restaurant.links || {};
   if (document.activeElement !== $("rIg")) $("rIg").value = lk.instagram || "";
   if (document.activeElement !== $("rWa")) $("rWa").value = lk.whatsapp || "";
-  if (document.activeElement !== $("rRev")) $("rRev").value = lk.review || "";
   var cats = restaurant.categories || [];
   var html = cats.map(function (c) {
     var list = items.filter(function (it) { return it.cat === c.id; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
@@ -749,9 +765,8 @@ $("cats").addEventListener("change", function (e) {
 $("saveR").addEventListener("click", function () {
   var name = $("rName").value.trim();
   if (!name) { toast("Enter the restaurant name.", true); return; }
-  var ig = $("rIg").value.trim(), waRaw = $("rWa").value.trim(), wa = waRaw.replace(/\D/g, ""), rev = $("rRev").value.trim();
+  var ig = $("rIg").value.trim(), waRaw = $("rWa").value.trim(), wa = waRaw.replace(/\D/g, ""), rev = String((restaurant.links || {}).review || "");   // the review link is set by the agency, not here
   if (waRaw && (wa.length < 10 || wa.length > 15)) { toast("Enter a valid WhatsApp number.", true); return; }
-  if (rev && !/^https:\/\//i.test(rev)) { toast("The Google review link must start with https://", true); return; }
   run(F.fs.updateDoc(rRef(), { name: name, tagline: $("rTag").value.trim(), links: { instagram: ig, whatsapp: wa, review: rev } }), "Saved");
 });
 
