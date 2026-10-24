@@ -4,7 +4,7 @@
 // Two tiers, each billed monthly or yearly. The tier is stored on the cafe ("tier"); the paid period on "sub".
 export const TIERS = {
   standard: { label: "Standard", monthly: 179, yearly: 1999 },
-  premium: { label: "Premium", monthly: 269, yearly: 3049 }
+  premium: { label: "Premium", monthly: 400, yearly: 4400 }
 };
 export const PERIODS = {
   monthly: { label: "Monthly", months: 1, per: "month" },
