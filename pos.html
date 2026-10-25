@@ -232,7 +232,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
-import { RID, start } from "./firebase-config.js";
+import { RID, start, HAS_R, routeByEmail } from "./firebase-config.js";
 import { isPremium, subStatus, rupees, normPhone, orderCode, fmtTime, safeImg, cleanTable, PAY_WHATSAPP, stampState } from "./shared.js";
 
 var $ = function (id) { return document.getElementById(id); };
@@ -292,6 +292,7 @@ async function stampWrite(phone) {
 function loyaltyOn() { return !!(rest && rest.loyalty && rest.loyalty.on && rest.loyalty.goal >= 2); }
 
 // ---------- start and login
+setTimeout(function () { var b = document.getElementById("boot"); if (b && !b.hidden) b.textContent = "Still loading. Your internet may be blocking Google's servers. Try mobile data or another network, then refresh."; }, 15000);
 (async function init() {
   try { F = await start({ auth: true }); }
   catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
@@ -306,6 +307,7 @@ function onUser(u) {
   ready = { r: false, i: false, o: false }; rest = null; items = []; orders = []; firstOrders = true; denied = false;
   // a customer's anonymous visit on this device is not a staff login
   if (u && !u.email) { $("login").hidden = false; $("app").hidden = true; return; }
+  if (u && !HAS_R) { $("login").hidden = true; $("app").hidden = true; routeByEmail(F, u.email, "pos.html"); return; }
   if (u) {
     $("who").textContent = u.email + "  |  " + RID;
     $("viewLink").href = "index.html?r=" + RID + "&fresh=1";

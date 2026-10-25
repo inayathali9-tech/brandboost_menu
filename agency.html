@@ -37,6 +37,9 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
 [hidden] { display: none !important; }
+.opt { display: flex; align-items: center; gap: 10px; }
+.opt input[type="checkbox"] { width: 22px; min-height: 0; height: 22px; accent-color: var(--bar); flex: none; }
+.opt label { margin: 0; }
 h1, h2, h3, p { margin: 0; }
 .wrap { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .btn {
@@ -188,6 +191,41 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
   </form>
 </dialog>
 
+<dialog id="dlgPics">
+  <form id="fPics" novalidate>
+    <h2 id="pcTitle">Category photos</h2>
+    <div><label for="pcText">One category per line: name, then photo links</label>
+      <textarea id="pcText" rows="9" autocapitalize="none" spellcheck="false" placeholder="Coffee | https://yourname.github.io/menu/img/coffee-1.jpg | https://yourname.github.io/menu/img/coffee-2.jpg&#10;Burgers | https://.../burgers-1.jpg"></textarea>
+      <p class="muted" style="margin-top:4px">Put the photos in your GitHub folder first, then paste their links. Use | between the category name and the links (up to 3 links per category). The category name must match the menu. This replaces the photos of the categories you list. Other categories are left alone.</p></div>
+    <div id="pcInfo" class="muted" role="status"></div>
+    <p id="pcErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelPics" class="btn ghost" type="button">Close</button>
+      <button class="btn primary" type="submit">Save photos</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgExtras">
+  <form id="fExtras" novalidate>
+    <h2 id="exTitle">Extras</h2>
+    <p class="muted">Included free with every plan: the themed QR cards and these extras. They run on the customer's phone and use no database reads. Only you can switch them on. Cafe owners cannot.</p>
+    <div class="opt"><input id="exChat" type="checkbox"><label for="exChat">Menu chatbot ("Ask our menu")</label></div>
+    <div class="opt"><input id="exCatch" type="checkbox"><label for="exCatch">Game: catch the beans</label></div>
+    <div class="opt"><input id="exMemory" type="checkbox"><label for="exMemory">Game: memory match</label></div>
+    <div class="opt"><input id="exSpin" type="checkbox"><label for="exSpin">Game: spin and win</label></div>
+    <div><label for="exReward">Reward for winning the catch or memory game (optional)</label><input id="exReward" maxlength="40" placeholder="Free cookie">
+      <p class="muted" style="margin-top:4px">Shown to the player as a screen with a code, for your staff to see. One reward a day per phone. Leave empty to play just for fun.</p></div>
+    <div><label for="exPrizes">Spin and win prizes (one per line, 2 to 8)</label><textarea id="exPrizes" rows="5" autocapitalize="none" placeholder="Free chai&#10;10% off&#10;Try again&#10;Free cookie"></textarea>
+      <p class="muted" style="margin-top:4px">Lines like "Try again" or "Better luck next time" count as no prize. One spin a day per phone.</p></div>
+    <p id="exErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelEx" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save extras</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgReview">
   <form id="fReview" novalidate>
     <h2 id="revTitle">Google review link</h2>
@@ -325,7 +363,7 @@ function subscribe() {
     ownersOk = true; ready.o = true; draw();
   }, function () { ownersOk = false; ready.o = true; draw(); }));
   unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
-    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()), review: ((d.data().links || {}).review) || "" }; })
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()), review: ((d.data().links || {}).review) || "", chatbot: !!d.data().chatbot, games: d.data().games || null }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
     ready.c = true; draw();
   }, function (e) { toast(friendly(e), true); }));
@@ -364,6 +402,8 @@ function draw() {
         '<a class="btn small" href="tables.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">QR codes</a>' +
         '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
         '<button class="btn small" type="button" data-act="paste" data-id="' + esc(c.id) + '">Paste menu</button>' +
+        '<button class="btn small" type="button" data-act="pics" data-id="' + esc(c.id) + '">Category photos</button>' +
+        '<button class="btn small" type="button" data-act="extras" data-id="' + esc(c.id) + '">Extras' + ((c.chatbot || (c.games && (c.games.catch || c.games.memory || c.games.spin))) ? " (on)" : "") + "</button>" +
         '<button class="btn small" type="button" data-act="review" data-id="' + esc(c.id) + '">' + (c.review ? "Review link" : "Add review link") + "</button>" +
         '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +
       "</div></section>";
@@ -384,6 +424,20 @@ $("cafes").addEventListener("click", async function (e) {
     openTier(id);
   } else if (b.dataset.act === "paste") {
     openPaste(id);
+  } else if (b.dataset.act === "pics") {
+    picsFor = id;
+    var pc = cafes.filter(function (x) { return x.id === id; })[0];
+    $("pcTitle").textContent = "Category photos for " + (pc ? pc.name : id);
+    $("pcText").value = ""; $("pcInfo").textContent = ""; $("pcErr").hidden = true;
+    $("dlgPics").showModal();
+  } else if (b.dataset.act === "extras") {
+    extrasFor = id;
+    var ec = cafes.filter(function (x) { return x.id === id; })[0] || {}, eg = ec.games || {};
+    $("exTitle").textContent = "Extras for " + (ec.name || id);
+    $("exChat").checked = !!ec.chatbot; $("exCatch").checked = !!eg.catch; $("exMemory").checked = !!eg.memory; $("exSpin").checked = !!eg.spin;
+    $("exReward").value = eg.reward || ""; $("exPrizes").value = (eg.prizes || []).join("\n");
+    $("exErr").hidden = true;
+    $("dlgExtras").showModal();
   } else if (b.dataset.act === "review") {
     reviewFor = id;
     var rc = cafes.filter(function (x) { return x.id === id; })[0];
@@ -472,7 +526,50 @@ $("fTier").addEventListener("submit", async function (e) {
 });
 
 // ---------- owners
-var reviewFor = null;
+var reviewFor = null, extrasFor = null, picsFor = null;
+$("cancelPics").addEventListener("click", function () { $("dlgPics").close(); });
+$("fPics").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("pcErr").hidden = true; $("pcInfo").textContent = "";
+  var text = $("pcText").value;
+  if (!text.trim()) return formErr("pcErr", "Paste the categories and photo links first.");
+  var fs = F.fs, ref = fs.doc(F.db, "restaurants", picsFor);
+  try {
+    var snap = await fs.getDoc(ref), rd = snap.data() || {}, cats = (rd.categories || []).map(function (c) { return Object.assign({}, c); });
+    var byName = {}; cats.forEach(function (c) { byName[String(c.name).trim().toLowerCase()] = c; });
+    var done = 0, missing = [], noLinks = [];
+    text.split(/\r?\n/).forEach(function (raw) {
+      var line = raw.trim(); if (!line) return;
+      var name, rest;
+      if (line.indexOf("|") >= 0 || line.indexOf("\t") >= 0) { var parts = line.split(/[|\t]/); name = parts.shift(); rest = parts.join(" "); }
+      else { var i = line.indexOf(","); name = i < 0 ? line : line.slice(0, i); rest = i < 0 ? "" : line.slice(i + 1); }
+      name = name.trim();
+      var links = rest.split(/[\s,]+/).filter(function (u) { return /^https:\/\/\S+$/i.test(u); }).slice(0, 3);
+      var c = byName[name.toLowerCase()];
+      if (!c) return missing.push(name);
+      if (!links.length) return noLinks.push(name);
+      c.photos = links; done++;
+    });
+    if (!done) { $("pcInfo").textContent = (missing.length ? "Not found in the menu: " + missing.join(", ") + ". " : "") + (noLinks.length ? "No https links for: " + noLinks.join(", ") + "." : ""); return formErr("pcErr", "Nothing to save."); }
+    var size = JSON.stringify(cats).length + JSON.stringify(rd.slides || []).length + String(rd.logo || "").length;
+    if (size > 850000) return formErr("pcErr", "Too many photos stored directly in this cafe. Use links instead of uploads.");
+    await fs.updateDoc(ref, { categories: cats });
+    $("pcInfo").textContent = "Saved photos for " + done + " categories." + (missing.length ? " Not found: " + missing.join(", ") + "." : "") + (noLinks.length ? " No links for: " + noLinks.join(", ") + "." : "");
+    toast("Category photos saved");
+  } catch (x) { formErr("pcErr", friendly(x)); }
+});
+$("cancelEx").addEventListener("click", function () { $("dlgExtras").close(); });
+$("fExtras").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var prizes = $("exPrizes").value.split(/\r?\n/).map(function (x) { return x.trim().slice(0, 30); }).filter(Boolean);
+  var spin = $("exSpin").checked;
+  if (spin && (prizes.length < 2 || prizes.length > 8)) return formErr("exErr", "Spin and win needs 2 to 8 prizes, one per line.");
+  var games = { catch: $("exCatch").checked, memory: $("exMemory").checked, spin: spin, reward: $("exReward").value.trim().slice(0, 40), prizes: prizes.slice(0, 8) };
+  try {
+    await F.fs.updateDoc(F.fs.doc(F.db, "restaurants", extrasFor), { chatbot: $("exChat").checked, games: games });
+    toast("Extras saved"); $("dlgExtras").close();
+  } catch (x) { formErr("exErr", friendly(x)); }
+});
 $("cancelRev").addEventListener("click", function () { $("dlgReview").close(); });
 $("fReview").addEventListener("submit", async function (e) {
   e.preventDefault();

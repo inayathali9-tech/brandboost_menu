@@ -53,7 +53,20 @@ input, select { font: inherit; color: var(--ink); width: 100%; min-height: 44px;
   font-family: var(--font-body);
   box-shadow: 0 0.2em 1.2em rgba(0, 0, 0, 0.18);
 }
-.card .band { width: 100%; background: var(--cbar, #8E1409); color: var(--con, #FFF8EF); padding: 1.3em 1.2em 1.1em; display: flex; flex-direction: column; align-items: center; gap: 0.5em; text-align: center; }
+.card { position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: var(--tbg, #FFFFFF); }
+.card .bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.card > :not(.bg) { position: relative; }
+.card .panel { display: contents; }
+.card.t .band { width: calc(100% - 5em); margin-top: 1.2em; background: #FFFFFF; color: #1B1B1B; border-radius: 1em; padding: 0.9em 1em 0.8em; box-shadow: 0 0.15em 0.5em rgba(0,0,0,0.25); }
+.card.t .band .nm { color: var(--cbar, #8E1409); font-size: 1.5em; }
+.card.t .logo { border: 0.12em solid var(--cacc, #F4A300); }
+.card.t .panel { display: flex; flex-direction: column; align-items: center; background: #FFFFFF; border-radius: 1em; width: calc(100% - 7.2em); margin-top: 1em; padding: 0.7em 0.5em 0.9em; box-shadow: 0 0.15em 0.5em rgba(0,0,0,0.25); }
+.card.t .ask { margin-top: 0; font-size: 1.3em; }
+.card.t canvas { width: 13.6em; height: 13.6em; margin-top: 0.35em; }
+.card.t .tbl { margin-top: 0.6em; font-size: 1.6em; }
+.card.t .ft { color: var(--tfg, #FFFFFF); background: var(--tfb, rgba(0,0,0,0.4)); padding: 0.25em 0.9em; border-radius: 999px; margin-bottom: 0.8em; }
+.card .band {
+  width: 100%; background: var(--cbar, #8E1409); color: var(--con, #FFF8EF); padding: 1.3em 1.2em 1.1em; display: flex; flex-direction: column; align-items: center; gap: 0.5em; text-align: center; }
 .card .logo { width: 4.6em; height: 4.6em; border-radius: 50%; background: #FFFFFF; display: grid; place-items: center; overflow: hidden; }
 .card .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .card .nm { font-family: var(--font-display); font-weight: 800; font-size: 1.7em; line-height: 1.05; letter-spacing: -0.01em; overflow-wrap: anywhere; }
@@ -78,6 +91,76 @@ input, select { font: inherit; color: var(--ink); width: 100%; min-height: 44px;
 <style id="pageRule">@page { size: A4; }</style>
 </head>
 <body class="sheet">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="s-cup" viewBox="0 0 34 34">
+      <path d="M11 8 Q8 4 11 0 M17 8 Q14 3 17 -1 M23 8 Q20 4 23 0" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
+      <ellipse cx="17" cy="29" rx="14" ry="3.4" fill="#C98B4B"/>
+      <path d="M5 11 H29 V19 Q29 27 17 27 Q5 27 5 19 Z" fill="#F3E2C7"/>
+      <path d="M29 13 Q36 13 35 19 Q34 24 28 23" fill="none" stroke="#F3E2C7" stroke-width="2.4" stroke-linecap="round"/>
+      <ellipse cx="17" cy="11" rx="12" ry="2.6" fill="#6B3E26"/>
+    </symbol>
+    <symbol id="s-bean" viewBox="0 0 12 16">
+      <ellipse cx="6" cy="8" rx="5" ry="7.5" fill="#C98B4B"/>
+      <path d="M6 1 Q9.5 8 6 15" fill="none" stroke="#3A2216" stroke-width="1.3" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-bowl" viewBox="0 0 36 30">
+      <ellipse cx="18" cy="12" rx="13" ry="8" fill="#FFF1CF"/>
+      <circle cx="11" cy="9" r="1" fill="#E3B04B"/><circle cx="17" cy="7" r="1" fill="#E3B04B"/><circle cx="23" cy="10" r="1" fill="#E3B04B"/><circle cx="14" cy="13" r="1" fill="#E3B04B"/><circle cx="21" cy="14" r="1" fill="#E3B04B"/>
+      <path d="M2 14 H34 Q33 28 18 28 Q3 28 2 14 Z" fill="#F6E3C1"/>
+      <path d="M6 18 H30" stroke="#C0392B" stroke-width="1.4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-chili" viewBox="0 0 30 14">
+      <path d="M2 10 Q14 1 28 7 Q16 14 2 10 Z" fill="#E4472B"/>
+      <path d="M28 7 Q30 4 29 2" fill="none" stroke="#3E8E41" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-star" viewBox="0 0 20 20">
+      <path d="M10 1 L12.2 7.8 L19 10 L12.2 12.2 L10 19 L7.8 12.2 L1 10 L7.8 7.8 Z" fill="#E3B04B"/>
+      <circle cx="10" cy="10" r="2" fill="#8A2412"/>
+    </symbol>
+    <symbol id="s-leaf" viewBox="0 0 20 12">
+      <path d="M1 6 Q10 -3 19 6 Q10 15 1 6 Z" fill="#4FA35B"/>
+      <path d="M2 6 H18" stroke="#2E7D45" stroke-width="0.8"/>
+    </symbol>
+    <symbol id="s-cupcake" viewBox="0 0 30 34">
+      <path d="M5 16 H25 L22 31 H8 Z" fill="#C98B4B"/>
+      <path d="M10 16 L11 31 M15 16 V31 M20 16 L19 31" stroke="#A8692F" stroke-width="0.9"/>
+      <ellipse cx="15" cy="15" rx="12" ry="4.2" fill="#FFFFFF"/>
+      <ellipse cx="15" cy="10.5" rx="9" ry="3.8" fill="#FFFFFF"/>
+      <ellipse cx="15" cy="6.4" rx="5.5" ry="3.2" fill="#FFFFFF"/>
+      <circle cx="15" cy="2.2" r="2.1" fill="#D6334C"/>
+    </symbol>
+    <symbol id="s-croissant" viewBox="0 0 40 20">
+      <path d="M2 16 Q4 4 20 3 Q36 4 38 16 Q34 11 30 12 Q26 7 20 8 Q14 7 10 12 Q6 11 2 16 Z" fill="#E0A458"/>
+      <path d="M14 5 Q15 9 13 12 M20 3 V9 M26 5 Q25 9 27 12" stroke="#B87722" stroke-width="1" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-wheat" viewBox="0 0 12 36">
+      <path d="M6 36 V6" stroke="#B87722" stroke-width="1.2"/>
+      <ellipse cx="6" cy="4" rx="2.2" ry="3.6" fill="#D9A441"/>
+      <ellipse cx="3" cy="11" rx="2.2" ry="3.6" fill="#D9A441" transform="rotate(-25 3 11)"/>
+      <ellipse cx="9" cy="11" rx="2.2" ry="3.6" fill="#D9A441" transform="rotate(25 9 11)"/>
+      <ellipse cx="3" cy="19" rx="2.2" ry="3.6" fill="#D9A441" transform="rotate(-25 3 19)"/>
+      <ellipse cx="9" cy="19" rx="2.2" ry="3.6" fill="#D9A441" transform="rotate(25 9 19)"/>
+    </symbol>
+    <symbol id="s-orange" viewBox="0 0 30 30">
+      <circle cx="15" cy="15" r="14" fill="#FFFFFF"/>
+      <circle cx="15" cy="15" r="12" fill="#FFB347"/>
+      <path d="M15 3 V27 M3 15 H27 M6.5 6.5 L23.5 23.5 M23.5 6.5 L6.5 23.5" stroke="#FFFFFF" stroke-width="1.2"/>
+      <circle cx="15" cy="15" r="2" fill="#FFFFFF"/>
+    </symbol>
+    <symbol id="s-glass" viewBox="0 0 24 40">
+      <path d="M15 2 L18 -4" stroke="#2E7D45" stroke-width="2" stroke-linecap="round"/>
+      <path d="M3 6 H21 L19 36 Q19 38 17 38 H7 Q5 38 5 36 Z" fill="#FFF3D6" fill-opacity="0.9"/>
+      <path d="M4.3 16 H19.7 L18.4 35 Q18.4 36.4 17 36.4 H7 Q5.6 36.4 5.6 35 Z" fill="#FFA62B"/>
+      <circle cx="12" cy="6" r="3" fill="#FFB347"/>
+    </symbol>
+    <symbol id="s-berry" viewBox="0 0 16 16">
+      <circle cx="8" cy="9" r="6" fill="#C2185B"/>
+      <circle cx="6" cy="7.5" r="1" fill="#F48FB1"/>
+      <path d="M8 3 Q10 0 13 1" fill="none" stroke="#2E7D45" stroke-width="1.5" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
 <div class="wrap">
   <section class="ui">
     <h1 id="ttl">QR codes</h1>
@@ -85,6 +168,8 @@ input, select { font: inherit; color: var(--ink); width: 100%; min-height: 44px;
     <div id="msg" class="note" hidden></div>
     <div class="ctl" id="ctl" hidden>
       <div id="tblBox"><label for="nTables">Number of tables</label><input id="nTables" type="number" min="1" max="99" value="10" inputmode="numeric"></div>
+      <div><label for="theme">Card design</label>
+        <select id="theme"><option value="plain">Plain</option><option value="coffee">Coffee shop</option><option value="biryani">Biryani and grills</option><option value="bakery">Bakery and sweets</option><option value="juice">Juice and shakes</option></select></div>
       <div><label for="layout">Print layout</label>
         <select id="layout"><option value="sheet">4 cards on an A4 sheet</option><option value="page">1 big card per page (A5)</option></select></div>
       <button id="print" class="btn primary" type="button">Print all</button>
@@ -106,6 +191,26 @@ function esc(t) {
   });
 }
 var rest = null, logoImg = null;
+
+// Each design: background colour, footer text colour, and the little pictures drawn around the edges (symbol id, x, y, width, rotation) on a 105 x 148 sheet.
+var THEMES = {
+  plain: null,
+  coffee: { bg: "#3A2216", fg: "#F3E2C7", fb: "rgba(0,0,0,0.45)", art: [["cup", -6, 118, 36, -12], ["cup", 78, 2, 34, 14], ["cup", 84, 112, 30, 8], ["cup", -4, 4, 26, -10], ["bean", 30, 134, 10, 30], ["bean", 62, 138, 9, -20], ["bean", 92, 60, 9, 25], ["bean", 3, 66, 9, -25], ["bean", 46, 1, 9, 160], ["bean", 74, 100, 8, 70], ["bean", 20, 104, 8, -60]] },
+  biryani: { bg: "#8A2412", fg: "#FFE9C7", fb: "rgba(0,0,0,0.35)", art: [["bowl", -8, 116, 40, -8], ["bowl", 76, 4, 38, 10], ["chili", 66, 128, 34, -20], ["chili", -4, 8, 32, 20], ["star", 88, 66, 14, 15], ["star", 4, 72, 14, -10], ["star", 44, 2, 11, 30], ["leaf", 40, 136, 18, 10], ["leaf", 94, 100, 16, 80], ["leaf", 0, 98, 16, -70]] },
+  bakery: { bg: "#F7D5D8", fg: "#6A3A1E", fb: "rgba(255,255,255,0.75)", art: [["cupcake", -6, 112, 32, -10], ["cupcake", 82, 2, 28, 12], ["croissant", 62, 128, 44, -8], ["croissant", -8, 4, 40, 10], ["wheat", 92, 66, 12, 12], ["wheat", 2, 70, 12, -12], ["berry", 40, 134, 9, 0], ["berry", 50, 2, 8, 0], ["berry", 94, 112, 8, 0]] },
+  juice: { bg: "#F58A1F", fg: "#FFFFFF", fb: "rgba(0,0,0,0.28)", art: [["orange", -8, 116, 36, 0], ["orange", 80, 2, 34, 20], ["glass", 84, 104, 20, 8], ["glass", 2, 2, 17, -10], ["leaf", 40, 134, 18, 10], ["leaf", 64, 136, 16, -20], ["berry", 92, 62, 10, 0], ["berry", 4, 70, 10, 0], ["leaf", 44, 0, 16, 160]] }
+};
+function themeArt(name) {
+  var t = THEMES[name]; if (!t) return "";
+  var uses = t.art.map(function (a) {
+    var w = a[3], h = w * (a[0] === "glass" ? 1.66 : a[0] === "wheat" ? 3 : a[0] === "cupcake" ? 1.13 : a[0] === "croissant" ? 0.5 : a[0] === "chili" ? 0.47 : a[0] === "bowl" ? 0.83 : a[0] === "leaf" ? 0.6 : a[0] === "bean" ? 1.33 : 1);
+    return '<use href="#s-' + a[0] + '" x="' + a[1] + '" y="' + a[2] + '" width="' + w + '" height="' + h + '" transform="rotate(' + a[4] + " " + (a[1] + w / 2) + " " + (a[2] + h / 2) + ')" style="color:' + t.fg + '"/>';
+  }).join("");
+  return '<svg class="bg" viewBox="0 0 105 148" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' + uses + "</svg>";
+}
+var theme = "plain";
+try { theme = new URLSearchParams(location.search).get("theme") || localStorage.getItem("qrtheme:" + RID) || "plain"; } catch (e) {}
+if (!(theme in THEMES)) theme = "plain";
 
 (async function () {
   try {
@@ -143,12 +248,14 @@ function draw() {
   var cells = [];
   if (prem) for (var i = 1; i <= n; i++) cells.push({ t: String(i), label: "Table " + i });
   else cells.push({ t: "", label: "" });
+  var tt = THEMES[theme];
   $("grid").innerHTML = cells.map(function (c, i) {
-    return '<div class="cell"><div class="card" style="--cbar:' + th["--bar"] + ";--con:" + th["--on-bar"] + ";--cacc:" + th["--saffron"] + ";--coa:" + th["--on-saffron"] + '">' +
+    return '<div class="cell"><div class="card' + (tt ? " t" : "") + '" style="--cbar:' + th["--bar"] + ";--con:" + th["--on-bar"] + ";--cacc:" + th["--saffron"] + ";--coa:" + th["--on-saffron"] + (tt ? ";--tbg:" + tt.bg + ";--tfg:" + tt.fg + ";--tfb:" + tt.fb : "") + '">' +
+      themeArt(theme) +
       '<div class="band">' + (logoImg ? '<div class="logo"><img alt="" src="' + esc(logoImg.src) + '"></div>' : "") + '<div class="nm">' + esc(rest.name || "Menu") + "</div></div>" +
-      '<div class="ask">' + (prem ? "Scan to order" : "Scan for our menu") + "</div>" +
+      '<div class="panel"><div class="ask">' + (prem ? "Scan to order" : "Scan for our menu") + "</div>" +
       '<canvas data-i="' + i + '" aria-label="QR code' + (c.label ? " for " + esc(c.label) : "") + '"></canvas>' +
-      (c.label ? '<div class="tbl">' + esc(c.label) + "</div>" : "") +
+      (c.label ? '<div class="tbl">' + esc(c.label) + "</div>" : "") + "</div>" +
       '<div class="ft">Menu by Brand Boost Studio</div></div>' +
       '<button class="btn small" type="button" data-dl="' + i + '">Download QR image</button></div>';
   }).join("");
@@ -159,6 +266,12 @@ function draw() {
   cells._ = cells; window.__cells = cells;
 }
 
+$("theme").value = theme;
+$("theme").addEventListener("change", function () {
+  theme = $("theme").value;
+  try { localStorage.setItem("qrtheme:" + RID, theme); } catch (e) {}
+  if (rest) draw();
+});
 $("nTables").addEventListener("input", function () { if (rest) draw(); });
 $("layout").addEventListener("change", function () {
   var v = $("layout").value;

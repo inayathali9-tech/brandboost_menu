@@ -266,6 +266,46 @@ body.cartOn footer .wrap { padding-bottom: 110px; }
 .locked p { color: var(--muted); max-width: 32ch; text-wrap: balance; }
 
 .item.sold .info { opacity: 0.5; }
+
+/* Chatbot and games (Extras) */
+.xtras { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+.xbtn { font: inherit; font-weight: 700; font-size: 0.92rem; min-height: 44px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1.5px solid var(--saffron); background: var(--surface); color: var(--ink); cursor: pointer; }
+.xbtn:focus-visible, .chip:focus-visible, .gcard:focus-visible, .mcard:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+.cmsgs { display: flex; flex-direction: column; gap: 8px; max-height: 42vh; overflow-y: auto; padding: 2px; }
+.cb { max-width: 92%; padding: 9px 12px; border-radius: 14px; font-size: 0.95rem; overflow-wrap: anywhere; }
+.cb.bot { align-self: flex-start; background: var(--surface); border: 1.5px solid var(--line); }
+.cb.me { align-self: flex-end; background: var(--saffron); color: var(--on-saffron); font-weight: 600; }
+.cl { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.cl li { padding-top: 8px; border-top: 1px solid var(--line); }
+.cl .pp { color: var(--price, var(--bar)); font-weight: 700; margin-left: 4px; }
+.cl .so { font-size: 0.75rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 6px; }
+.cl small { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: inherit; font-size: 0.85rem; font-weight: 600; min-height: 38px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.cform { display: flex; gap: 8px; }
+.cform input { flex: 1; min-width: 0; font: inherit; color: var(--ink); min-height: 46px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--field, #fff); }
+.glist { display: flex; flex-direction: column; gap: 10px; }
+.gcard { font: inherit; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; min-height: 64px; }
+.gcard span { color: var(--muted); font-size: 0.88rem; }
+.gstat { display: flex; justify-content: space-between; font-size: 0.92rem; color: var(--muted); }
+.gstat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+#gcv { width: 100%; max-width: 320px; align-self: center; border-radius: 14px; border: 1.5px solid var(--line); touch-action: none; display: block; margin-inline: auto; }
+.gbtns { display: flex; gap: 10px; justify-content: center; align-items: center; }
+.gend { text-align: center; font-size: 1.1rem; margin: 4px 0; }
+.claim { text-align: center; border: 2px dashed var(--saffron); border-radius: 16px; padding: 14px; background: var(--surface); }
+.claim p { margin: 2px 0; }
+.claim .cl1 { color: var(--muted); font-weight: 600; }
+.claim .cl2 { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; }
+.claim .cl3 { font-weight: 600; }
+.claim .cl4 { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.9rem; }
+.mgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 340px; margin-inline: auto; width: 100%; }
+.mcard { aspect-ratio: 1; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bar); color: var(--on-bar); cursor: pointer; padding: 8px; font: inherit; }
+.mcard.up, .mcard.done { background: var(--surface); }
+.mcard.done { opacity: 0.55; }
+.wheelbox { position: relative; width: min(100%, 300px); margin: 6px auto 0; aspect-ratio: 1; }
+.wheel { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 6px 22px rgba(0,0,0,0.25); }
+.wheel svg { width: 100%; height: 100%; display: block; }
+.ptr { position: absolute; left: 50%; top: -8px; width: 0; height: 0; transform: translateX(-50%); border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 22px solid var(--ink); z-index: 2; }
 .tag.out { background: var(--line); color: var(--muted); }
 
 .links { padding-block: 6px 30px; }
@@ -386,6 +426,10 @@ dialog.sheet::backdrop { background: rgba(20, 8, 4, 0.55); }
     <form id="tform" novalidate><input id="tin" maxlength="12" placeholder="Table number" aria-label="Table number" autocomplete="off"><button class="btn primary" type="submit">Set table</button></form>
     <p class="err" id="terr" role="alert" hidden></p>
   </section>
+  <section class="xtras" id="xtras" hidden aria-label="Extras">
+    <button class="xbtn" id="chatBtn" type="button" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>Ask our menu</button>
+    <button class="xbtn" id="gameBtn" type="button" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="11" rx="4"/><path d="M8 10v5M5.5 12.5h5M16 11h.01M18 14h.01"/></svg>Play and win</button>
+  </section>
   <div class="search" id="search" hidden><input id="q" type="search" placeholder="Search dishes" aria-label="Search dishes" autocomplete="off"></div>
 </div>
 
@@ -425,6 +469,7 @@ dialog.sheet::backdrop { background: rgba(20, 8, 4, 0.55); }
 
 <script type="module">
 import { RID, start } from "./firebase-config.js";
+import { openChat, openGames } from "./extras.js";
 import { applyTheme, subStatus, rupees, isPremium, safeImg, normPhone, cleanTable, orderCode, lineTotal, stampState } from "./shared.js";
 
 var ART = {
@@ -654,6 +699,14 @@ function drawLoyalty() {
   $("loyTx").innerHTML = "<b>Loyalty card</b>Collect " + esc(D.loyalty.goal) + " stamps and get " + esc(D.loyalty.reward || "a reward") + "." + (Number(D.loyalty.days) > 0 ? " Visit again within " + esc(D.loyalty.days) + " days of your last stamp to keep them." : "");
 }
 var dlgMode = "";
+// ---------- chatbot and games (switched on per cafe by the agency; they run on the phone and use no database reads)
+function gamesOn() { var g = D && D.games; return !!(g && (g.catch || g.memory || (g.spin && (g.prizes || []).length >= 2))); }
+function drawExtras() {
+  var chat = !!(D && D.chatbot), game = gamesOn();
+  $("chatBtn").hidden = !chat; $("gameBtn").hidden = !game; $("xtras").hidden = !(chat || game);
+}
+$("chatBtn").addEventListener("click", function () { openSheet("chat"); openChat({ host: $("dlgIn"), D: D }); });
+$("gameBtn").addEventListener("click", function () { openSheet("games"); openGames({ host: $("dlgIn"), dlg: $("dlg"), games: D.games, rid: RID }); });
 $("loyBtn").addEventListener("click", function () {
   openSheet("stamps");
   $("dlgIn").innerHTML = '<div class="hd"><h2 id="dlgT">My stamps</h2><button class="x" type="button" data-close aria-label="Close">×</button></div>' +
@@ -840,7 +893,7 @@ function render(data) {
   if (subLocked()) {
     menuEl.innerHTML = ""; tabsEl.innerHTML = "";
     $("links").hidden = true; $("rtag").hidden = true; $("hero").hidden = true; $("loy").hidden = true; $("search").hidden = true;
-    $("tbar").hidden = true; $("tchip").hidden = true; $("cartBar").hidden = true;
+    $("tbar").hidden = true; $("tchip").hidden = true; $("cartBar").hidden = true; $("xtras").hidden = true;
     $("locked").hidden = false;
     return;
   }
@@ -848,7 +901,7 @@ function render(data) {
   $("rtag").textContent = data.tagline || "";
   $("rtag").hidden = !data.tagline;
   restoreCart();
-  drawHero(); drawLoyalty();
+  drawHero(); drawLoyalty(); drawExtras();
   chrome();
   renderLinks(data.links);
 }
@@ -890,11 +943,11 @@ function notFound() {
   note("We could not find this menu. Please check the link or scan the QR code again.", true);
 }
 
-// Each phone keeps the last menu it saw. Within 5 minutes it does not ask the database at all,
+// Each phone keeps the last menu it saw. Within 5 days it does not ask the database at all,
 // which saves the free daily limit. After that it fetches once (no live listener).
 // If the database cannot be reached, the saved menu is shown instead of an error.
 // Add &fresh=1 to a link to skip the saved copy (the admin "View menu" button does).
-var TTL = 5 * 60 * 1000;
+var TTL = 5 * 24 * 3600 * 1000;   // a phone keeps the saved menu for 5 days: reopening or refreshing costs 0 database reads
 var CKEY = "menu:" + RID;
 var FRESH = /[?&]fresh=1(&|$)/.test(location.search);
 function readCache() {
@@ -937,7 +990,7 @@ async function resumeOrder() {
       items: list,
       links: rd.links, theme: rd.theme || null, sub: rd.sub || null,
       tier: rd.tier || "standard", logo: rd.logo || "", slides: rd.slides || [], ordering: rd.ordering !== false,
-      tables: rd.tables || 0, loyalty: rd.loyalty || null
+      tables: rd.tables || 0, loyalty: rd.loyalty || null, chatbot: !!rd.chatbot, games: rd.games || null
     };
     if (!cached || JSON.stringify(cached.data) !== JSON.stringify(data)) render(data);
     writeCache(data);

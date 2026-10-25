@@ -269,6 +269,7 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
         </div>
         <p class="muted">Leave a box empty to hide that button.</p>
         <button id="saveR" class="btn primary" type="button" style="align-self:flex-start">Save details</button>
+        <p class="muted" style="margin:0">Customers' phones keep a saved copy of your menu for up to 5 days, so a change can take a few days to reach people who already visited. The View menu button at the top always shows the newest version.</p>
       </section>
 
       <section class="card" id="logoCard">
@@ -388,8 +389,9 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
       <legend>Category photos (1 to 3)</legend>
       <div id="catPhotos" class="stack" style="gap:10px"></div>
       <button id="addCatPhoto" class="btn small ghost" type="button" style="align-self:flex-start">+ Add photo</button>
+      <div style="display:flex;gap:8px"><input id="cLink" type="url" inputmode="url" placeholder="Or paste a photo link (https://)" aria-label="Photo link" style="flex:1;min-width:0"><button id="addCatLink" class="btn small" type="button">Add link</button></div>
       <input id="cFile" type="file" accept="image/*" hidden>
-      <p class="muted" style="margin:0">These show at the top of the category. Dishes do not have their own photos.</p>
+      <p class="muted" style="margin:0">These show at the top of the category. Dishes do not have their own photos. For a big menu, put the photos in your GitHub folder and paste their links here. That keeps the menu fast and light.</p>
     </fieldset>
     <p id="catErr" class="err" role="alert" hidden></p>
     <div class="actions">
@@ -710,7 +712,8 @@ function drawSlides() {
       '<div class="stack" style="gap:8px"><label class="btn small" for="sf' + i + '" style="margin:0">' + (u ? "Change photo" : "Upload photo") + "</label>" +
       '<input id="sf' + i + '" type="file" accept="image/*" data-i="' + i + '" hidden>' +
       '<input data-i="' + i + '" data-k="title" maxlength="40" placeholder="Title, like Chef special" value="' + esc(s.title) + '" aria-label="Slide title">' +
-      '<input data-i="' + i + '" data-k="sub" maxlength="60" placeholder="Small line (optional)" value="' + esc(s.sub) + '" aria-label="Slide small line"></div>' +
+      '<input data-i="' + i + '" data-k="sub" maxlength="60" placeholder="Small line (optional)" value="' + esc(s.sub) + '" aria-label="Slide small line">' +
+      '<input data-i="' + i + '" data-link="1" type="url" inputmode="url" placeholder="Or paste a photo link (https://)" value="' + esc(/^data:/i.test(String(s.img || "")) ? "" : (s.img || "")) + '" aria-label="Slide photo link"></div>' +
       '<button class="x" type="button" data-i="' + i + '" aria-label="Remove this slide">×</button></div>';
   }).join("");
   $("addSlide").hidden = slides.length >= 4;
@@ -719,13 +722,15 @@ $("premSet").addEventListener("input", function (e) {
   premDirty = true;
   var t = e.target;
   if (t.dataset && t.dataset.k) slides[+t.dataset.i][t.dataset.k] = t.value;
+  if (t.dataset && t.dataset.link) { var v = t.value.trim(); if (/^https:\/\/\S+$/i.test(v)) slides[+t.dataset.i].img = v; }
 });
 $("slideRows").addEventListener("change", async function (e) {
   var t = e.target;
+  if (t.dataset && t.dataset.link) { premDirty = true; drawSlides(); return; }
   if (t.type !== "file") return;
   var f = t.files && t.files[0];
   if (!f) return;
-  try { slides[+t.dataset.i].img = await shrinkPhoto(f, 480, 270, 45000); premDirty = true; drawSlides(); }
+  try { slides[+t.dataset.i].img = await shrinkPhoto(f, 480, 270, 30000); premDirty = true; drawSlides(); }
   catch (x) { toast("Could not read that picture. Try a different one.", true); }
 });
 $("slideRows").addEventListener("click", function (e) {
@@ -745,6 +750,8 @@ $("savePrem").addEventListener("click", async function () {
   if (days < 0 || days > 365) return formErr("premErr", "Stamp expiry must be between 0 and 365 days.");
   if (slides.some(function (s) { return !safeImg(s.img); })) return formErr("premErr", "Add a photo to every slide, or remove the empty slide.");
   var sl = slides.map(function (s) { return { img: s.img, title: String(s.title || "").trim(), sub: String(s.sub || "").trim() }; });
+  var docSize = JSON.stringify(sl).length + JSON.stringify(restaurant.categories || []).length + String(restaurant.logo || "").length;
+  if (docSize > 850000) return formErr("premErr", "Too many photos in the menu. Remove a slide or a category photo.");
   if (await run(F.fs.updateDoc(rRef(), { ordering: $("oOrd").checked, tables: tables, loyalty: { on: on, goal: goal >= 2 ? goal : 10, reward: reward, days: days }, slides: sl }), "Saved")) premDirty = false;
 });
 
@@ -865,13 +872,20 @@ $("catPhotos").addEventListener("click", function (e) {
   if (l) picSlot = +l.dataset.slot;
   if (b) { catPics.splice(+b.dataset.rm, 1); drawCatPics(); }
 });
+$("addCatLink").addEventListener("click", function () {
+  var u = $("cLink").value.trim();
+  $("catErr").hidden = true;
+  if (!/^https:\/\/\S+$/i.test(u)) return formErr("catErr", "The photo link must start with https://");
+  if (catPics.length >= 3) return formErr("catErr", "A category can have at most 3 photos.");
+  catPics.push(u); $("cLink").value = ""; drawCatPics();
+});
 $("addCatPhoto").addEventListener("click", function () { picSlot = catPics.length; $("cFile").click(); });
 $("cFile").addEventListener("change", async function () {
   var f = this.files && this.files[0];
   this.value = "";
   if (!f) return;
   try {
-    var u = await shrinkPhoto(f, 480, 270, 28000);
+    var u = await shrinkPhoto(f, 320, 180, 12000);
     if (picSlot >= 0 && picSlot < catPics.length) catPics[picSlot] = u; else if (catPics.length < 3) catPics.push(u);
     drawCatPics();
   } catch (err) { formErr("catErr", "Could not read that photo. Try a different one."); }
