@@ -241,7 +241,6 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
       <span class="ttl">Menu Panel</span>
       <a class="btn small" id="viewLink" href="index.html" target="_blank" rel="noopener">View menu</a>
       <a class="btn small" id="posLink" href="pos.html" target="_blank" rel="noopener" hidden>Orders</a>
-      <a class="btn small" id="qrLink" href="tables.html" target="_blank" rel="noopener">QR codes</a>
       <button id="signOut" class="btn small" type="button">Log out</button>
       <span class="who" id="who"></span>
     </div>
@@ -316,7 +315,6 @@ footer { padding-block: 8px 28px; color: var(--muted); font-size: 0.82rem; }
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button id="savePrem" class="btn primary" type="button">Save</button>
             <a id="posBtn" class="btn" target="_blank" rel="noopener">Open orders panel</a>
-            <a id="qrBtn" class="btn" target="_blank" rel="noopener">Print table QR codes</a>
           </div>
         </div>
       </section>
@@ -474,7 +472,7 @@ function onUser(u) {
   unsubs = [];
   ready.r = ready.i = false;
   restaurant = null; items = []; themeDirty = false; premDirty = false;
-  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID + "&fresh=1"; $("posLink").href = "pos.html?r=" + RID; $("qrLink").href = "tables.html?r=" + RID; subscribe(); }
+  if (u) { $("who").textContent = u.email + "  |  " + RID; $("viewLink").href = "index.html?r=" + RID + "&fresh=1"; $("posLink").href = "pos.html?r=" + RID; subscribe(); }
 }
 $("fLogin").addEventListener("submit", async function (e) {
   e.preventDefault();
@@ -500,27 +498,31 @@ function subscribe() {
   unsubs.push(fs.onSnapshot(rRef(), function (s) {
     restaurant = s.exists() ? s.data() : null; ready.r = true; draw();
   }, function (e) { toast(friendly(e), true); }));
-  menuDoc = null; menuReady = false; lastSig = "";
+  // The dishes come from the one combined menu document (1 read), not from every dish (about 200 reads).
+  // A cafe that has no combined menu yet is read the old way once, and the combined menu is created from it.
+  legacyTried = false;
   unsubs.push(fs.onSnapshot(fs.doc(F.db, "restaurants", RID, "menu", "all"), function (s) {
-    menuDoc = s.exists() ? s.data() : null; menuReady = true; syncMenu();
-  }, function () { menuReady = false; }));
-  unsubs.push(fs.onSnapshot(fs.collection(F.db, "restaurants", RID, "items"), function (s) {
-    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw(); syncMenu();
+    var d = s.exists() ? s.data() : null;
+    if (d && Array.isArray(d.items)) {
+      items = d.items.map(function (o) { return Object.assign({}, o); }); ready.i = true; draw();
+    } else if (!legacyTried) { legacyTried = true; loadLegacy(); }
   }, function (e) { toast(friendly(e), true); }));
 }
+var legacyTried = false;
+async function loadLegacy() {
+  try {
+    var s = await F.fs.getDocs(F.fs.collection(F.db, "restaurants", RID, "items"));
+    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+    ready.i = true; draw();
+    if (items.length) await publish(items);
+  } catch (e) { toast(friendly(e), true); }
+}
 
-// Keeps the combined menu (what customers read) equal to the dishes below. Runs after every change.
-var menuDoc = null, menuReady = false, lastSig = "";
-function syncMenu() {
-  if (!ready.i || !menuReady) return;
-  var list = menuItems(items), sig = JSON.stringify(list);
-  if (!list.length && !menuDoc) return;
-  if (menuDoc && JSON.stringify(menuDoc.items) === sig) { lastSig = sig; return; }
-  if (sig === lastSig) return;
-  if (sig.length > 900000) { toast("The menu is too big to publish. Remove some dishes.", true); return; }
-  lastSig = sig;
-  F.fs.setDoc(F.fs.doc(F.db, "restaurants", RID, "menu", "all"), { items: list, updatedAt: F.fs.serverTimestamp() })
-    .catch(function () { lastSig = ""; toast("Could not update the public menu. Check your internet and try again.", true); });
+// Writes the combined menu (what customers read). Every dish change below goes through here too.
+function publish(list) {
+  var out = menuItems(list);
+  if (JSON.stringify(out).length > 900000) { toast("The menu is too big to publish. Remove some dishes.", true); return Promise.reject(new Error("too big")); }
+  return F.fs.setDoc(F.fs.doc(F.db, "restaurants", RID, "menu", "all"), { items: out, updatedAt: F.fs.serverTimestamp() });
 }
 
 // ---------- drawing
@@ -693,7 +695,6 @@ function drawPrem() {
     return;
   }
   $("posBtn").href = "pos.html?r=" + RID;
-  $("qrBtn").href = "tables.html?r=" + RID;
   if (premDirty) return;
   $("oOrd").checked = restaurant.ordering !== false;
   $("oTables").value = restaurant.tables || 10;
@@ -766,7 +767,8 @@ $("cats").addEventListener("click", function (e) {
 $("cats").addEventListener("change", function (e) {
   var c = e.target.closest('[data-act="avail"]');
   if (!c) return;
-  run(F.fs.updateDoc(dRef(c.dataset.id), { sold: !c.checked }), c.checked ? "Marked available" : "Marked sold out");
+  var sid = c.dataset.id, sold = !c.checked;
+  run(Promise.all([F.fs.updateDoc(dRef(sid), { sold: sold }), publish(items.map(function (x) { return x.id === sid ? Object.assign({}, x, { sold: sold }) : x; }))]), c.checked ? "Marked available" : "Marked sold out");
 });
 
 $("saveR").addEventListener("click", function () {
@@ -828,7 +830,8 @@ $("delItem").addEventListener("click", async function () {
     return;
   }
   resetDel();
-  if (await run(F.fs.deleteDoc(dRef(editing.id)), "Dish deleted")) $("dlgItem").close();
+  var did = editing.id;
+  if (await run(Promise.all([F.fs.deleteDoc(dRef(did)), publish(items.filter(function (x) { return x.id !== did; }))]), "Dish deleted")) $("dlgItem").close();
 });
 $("fItem").addEventListener("submit", async function (e) {
   e.preventDefault();
@@ -843,7 +846,9 @@ $("fItem").addEventListener("submit", async function (e) {
   var order = old ? (old.order || 0) : items.reduce(function (m, o) { return Math.max(m, o.order || 0); }, -1) + 1;
   var data = { cat: $("iCat").value, n: n, d: $("iDesc").value.trim(), p: p, t: $("iTag").value, sold: old ? !!old.sold : false, order: order };
   var ref = editing.id ? dRef(editing.id) : F.fs.doc(F.fs.collection(F.db, "restaurants", RID, "items"));
-  if (await run(F.fs.setDoc(ref, data), "Saved")) $("dlgItem").close();
+  var rec = Object.assign({ id: ref.id }, data);
+  var next = items.filter(function (x) { return x.id !== ref.id; }).concat([rec]);
+  if (await run(Promise.all([F.fs.setDoc(ref, data), publish(next)]), "Saved")) $("dlgItem").close();
 });
 
 // ---------- category sheet

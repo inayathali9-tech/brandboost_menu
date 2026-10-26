@@ -325,14 +325,24 @@ $("fLogin").addEventListener("submit", async function (e) {
 });
 $("signOut").addEventListener("click", function () { F.authMod.signOut(F.auth); });
 
+var legacyTried = false;
 function subscribe() {
   var fs = F.fs;
   unsubs.push(fs.onSnapshot(fs.doc(F.db, "restaurants", RID), function (s) {
     rest = s.exists() ? s.data() : null; ready.r = true; draw();
   }, function (e) { toast(friendly(e), true); }));
-  unsubs.push(fs.onSnapshot(fs.collection(F.db, "restaurants", RID, "items"), function (s) {
-    items = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; }); ready.i = true; draw();
-  }, function () {}));
+  // Dishes come from the one combined menu document (1 read). A cafe without it is read the old way once.
+  legacyTried = false;
+  unsubs.push(fs.onSnapshot(fs.doc(F.db, "restaurants", RID, "menu", "all"), function (s) {
+    var d = s.exists() ? s.data() : null;
+    if (d && Array.isArray(d.items)) { items = d.items.map(function (o) { return Object.assign({}, o); }); ready.i = true; draw(); }
+    else if (!legacyTried) {
+      legacyTried = true;
+      fs.getDocs(fs.collection(F.db, "restaurants", RID, "items")).then(function (q) {
+        items = q.docs.map(function (x) { var o = x.data(); o.id = x.id; return o; }); ready.i = true; draw();
+      }).catch(function () { ready.i = true; draw(); });
+    }
+  }, function () { ready.i = true; draw(); }));
   var since = fs.Timestamp.fromMillis(Date.now() - 24 * 3600 * 1000);
   var q = fs.query(fs.collection(F.db, "restaurants", RID, "orders"), fs.where("createdAt", ">=", since), fs.orderBy("createdAt", "desc"), fs.limit(200));
   unsubs.push(fs.onSnapshot(q, function (s) {
