@@ -210,6 +210,9 @@ dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4re
   <form id="fExtras" novalidate>
     <h2 id="exTitle">Extras</h2>
     <p class="muted">Included free with every plan: the themed QR cards and these extras. They run on the customer's phone and use no database reads. Only you can switch them on. Cafe owners cannot.</p>
+    <div><label for="exSession">Menu closes after</label>
+      <select id="exSession"><option value="60">1 hour</option><option value="120">2 hours (default)</option><option value="180">3 hours</option><option value="240">4 hours</option><option value="0">Never</option></select>
+      <p class="muted" style="margin-top:4px">After this time on one page, customers see "Please scan the QR code again". Cafe owners cannot change it.</p></div>
     <div class="opt"><input id="exChat" type="checkbox"><label for="exChat">Menu chatbot ("Ask our menu")</label></div>
     <div class="opt"><input id="exCatch" type="checkbox"><label for="exCatch">Game: catch the beans</label></div>
     <div class="opt"><input id="exMemory" type="checkbox"><label for="exMemory">Game: memory match</label></div>
@@ -363,7 +366,7 @@ function subscribe() {
     ownersOk = true; ready.o = true; draw();
   }, function () { ownersOk = false; ready.o = true; draw(); }));
   unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
-    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()), review: ((d.data().links || {}).review) || "", chatbot: !!d.data().chatbot, games: d.data().games || null }; })
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()), review: ((d.data().links || {}).review) || "", chatbot: !!d.data().chatbot, games: d.data().games || null, sessionMins: d.data().sessionMins == null ? 120 : Number(d.data().sessionMins) }; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
     ready.c = true; draw();
   }, function (e) { toast(friendly(e), true); }));
@@ -434,6 +437,7 @@ $("cafes").addEventListener("click", async function (e) {
     extrasFor = id;
     var ec = cafes.filter(function (x) { return x.id === id; })[0] || {}, eg = ec.games || {};
     $("exTitle").textContent = "Extras for " + (ec.name || id);
+    $("exSession").value = String(ec.sessionMins == null ? 120 : ec.sessionMins);
     $("exChat").checked = !!ec.chatbot; $("exCatch").checked = !!eg.catch; $("exMemory").checked = !!eg.memory; $("exSpin").checked = !!eg.spin;
     $("exReward").value = eg.reward || ""; $("exPrizes").value = (eg.prizes || []).join("\n");
     $("exErr").hidden = true;
@@ -566,7 +570,7 @@ $("fExtras").addEventListener("submit", async function (e) {
   if (spin && (prizes.length < 2 || prizes.length > 8)) return formErr("exErr", "Spin and win needs 2 to 8 prizes, one per line.");
   var games = { catch: $("exCatch").checked, memory: $("exMemory").checked, spin: spin, reward: $("exReward").value.trim().slice(0, 40), prizes: prizes.slice(0, 8) };
   try {
-    await F.fs.updateDoc(F.fs.doc(F.db, "restaurants", extrasFor), { chatbot: $("exChat").checked, games: games });
+    await F.fs.updateDoc(F.fs.doc(F.db, "restaurants", extrasFor), { chatbot: $("exChat").checked, games: games, sessionMins: Number($("exSession").value) || 0 });
     toast("Extras saved"); $("dlgExtras").close();
   } catch (x) { formErr("exErr", friendly(x)); }
 });
