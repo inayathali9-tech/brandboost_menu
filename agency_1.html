@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Agency Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width column. Red top bar, one card per cafe with its links and owners, an Add cafe button, and sheets for adding a cafe or changing owners. */
+:root {
+  --bg: #FFF1DC;
+  --surface: #FFF8EC;
+  --ink: #2A160E;
+  --muted: #7B5B4C;
+  --line: #EBCFA9;
+  --bar: #8E1409;
+  --on-bar: #FFF1DC;
+  --price: #B5200F;
+  --saffron: #F4A300;
+  --on-saffron: #2A160E;
+  --bad: #B5200F;
+  --field: #FFFDF8;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1D110B; --surface: #2A1912; --ink: #FBEAD3; --muted: #C9A892; --line: #4A3226;
+    --bar: #5E1209; --price: #FF7A5C; --saffron: #FFB830; --bad: #FF7A5C; --field: #231610;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45; }
+[hidden] { display: none !important; }
+.opt { display: flex; align-items: center; gap: 10px; }
+.opt input[type="checkbox"] { width: 22px; min-height: 0; height: 22px; accent-color: var(--bar); flex: none; }
+.opt label { margin: 0; }
+h1, h2, h3, p { margin: 0; }
+.wrap { max-width: 720px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.btn {
+  font: inherit; font-weight: 700; font-size: 0.95rem; min-height: 44px; padding: 0 16px;
+  border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
+}
+.btn.primary { background: var(--saffron); border-color: var(--saffron); color: var(--on-saffron); }
+.btn.ghost { background: transparent; }
+.btn.small { min-height: 38px; padding: 0 12px; font-size: 0.88rem; }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+label { display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 4px; }
+input, select, textarea { font: inherit; color: var(--ink); width: 100%; min-height: 44px; padding: 9px 12px; background: var(--field); border: 1.5px solid var(--line); border-radius: 10px; }
+textarea { resize: vertical; min-height: 84px; }
+.err { color: var(--bad); font-weight: 600; font-size: 0.9rem; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.center { min-height: 60vh; display: grid; place-items: center; color: var(--muted); }
+.login { padding-block: 48px; }
+.card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.login h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; letter-spacing: -0.02em; }
+.top { background: var(--bar); color: var(--on-bar); position: sticky; top: 0; z-index: 5; }
+.top .wrap { display: flex; align-items: center; gap: 10px; padding-block: 12px; flex-wrap: wrap; }
+.top .ttl { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; flex: 1; min-width: 0; }
+.top .who { font-size: 0.78rem; opacity: 0.85; flex-basis: 100%; overflow-wrap: anywhere; }
+.top .btn { background: transparent; color: var(--on-bar); border-color: rgba(255, 241, 220, 0.5); min-height: 38px; font-size: 0.88rem; }
+main { padding-block: 18px 40px; display: flex; flex-direction: column; gap: 16px; }
+.sec-title { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; }
+.cafe h3 { font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; overflow-wrap: anywhere; }
+.cafe code { font-size: 0.85rem; background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+.owners { font-size: 0.9rem; overflow-wrap: anywhere; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; margin-right: 8px; }
+.pill.active { background: #D9F2DF; color: #14532A; }
+.pill.grace { background: #FFF0C9; color: #4A3300; }
+.pill.locked { background: #FFE1DC; color: #5A0F07; }
+.pill.none { background: var(--line); color: var(--ink); }
+.subline { font-size: 0.9rem; }
+.pill.tier { margin: 0 0 0 8px; vertical-align: middle; }
+.pill.std { background: var(--line); color: var(--ink); }
+.pill.prem { background: var(--saffron); color: var(--on-saffron); }
+.grp { font-weight: 700; font-size: 0.88rem; margin: 4px 0 -6px; }
+.radios { display: flex; flex-direction: column; gap: 8px; }
+.radios label { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field); }
+.radios input { width: 20px; min-height: 0; height: 20px; padding: 0; accent-color: var(--price); }
+dialog { width: min(92vw, 520px); max-height: 90vh; padding: 0; border: 0; border-radius: 18px; background: var(--bg); color: var(--ink); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+dialog::backdrop { background: rgba(20, 8, 4, 0.55); }
+dialog form { padding: 20px; display: flex; flex-direction: column; gap: 14px; max-height: 90vh; overflow-y: auto; }
+dialog h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 0.92rem; padding: 11px 18px; border-radius: 999px; max-width: 90vw; text-align: center; transition: opacity 0.2s, transform 0.2s; z-index: 50; overflow-wrap: anywhere; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.bad { background: var(--bad); color: #fff; }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="boot" class="center">Loading...</div>
+
+<div id="login" class="wrap login" hidden>
+  <form id="fLogin" class="card" novalidate style="padding:22px;gap:16px">
+    <h1>Agency Panel</h1>
+    <p class="muted">For Brand Boost Studio. Log in to add cafes, choose who can edit each menu, set the tier and mark payments.</p>
+    <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" required></div>
+    <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <p id="loginErr" class="err" role="alert" hidden></p>
+    <button id="loginBtn" class="btn primary" type="submit">Log in</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="wrap">
+      <span class="ttl">Agency Panel</span>
+      <button id="signOut" class="btn small" type="button">Log out</button>
+      <span class="who" id="who"></span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="notAgency" class="card" hidden>
+      <h2 class="sec-title">Agency login needed</h2>
+      <p class="muted">This login is not an agency login. Log out and use the agency email. If it should work, check that the email is in the Firestore rules.</p>
+    </section>
+
+    <div id="main" class="stack" hidden>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <button id="addCafe" class="btn primary" type="button">+ Add cafe</button>
+        <button id="convAll" class="btn" type="button">Convert all cafes</button>
+      </div>
+      <p id="convInfo" class="muted" role="status" hidden></p>
+      <div id="cafes" class="stack"></div>
+    </div>
+  </main>
+</div>
+
+<dialog id="dlgCafe">
+  <form id="fCafe" novalidate>
+    <h2>Add cafe</h2>
+    <div><label for="aName">Cafe name</label><input id="aName" maxlength="60" placeholder="Blue Door Cafe"></div>
+    <div><label for="aId">Menu link name</label><input id="aId" maxlength="40" placeholder="blue-door-cafe" autocapitalize="none">
+      <p class="muted" style="margin-top:4px">Lowercase letters, numbers and dashes. Becomes <b>?r=</b> in the menu link. You cannot change it later.</p></div>
+    <div><label for="aOwners">Owner emails (one per line)</label><textarea id="aOwners" placeholder="owner@gmail.com" autocapitalize="none"></textarea>
+      <p class="muted" style="margin-top:4px">Also add each owner under Firebase, Authentication, Users, with a password.</p></div>
+    <div><label for="aStart">Start with</label>
+      <select id="aStart"><option value="empty">An empty menu</option><option value="sample">Sample dishes (Mandi, Burgers, Pizza and more)</option></select></div>
+    <div><label for="aTier">Tier</label>
+      <select id="aTier"><option value="standard">Standard (menu only)</option><option value="premium">Premium (ordering, orders panel, stamps, app-style menu)</option></select></div>
+    <div><label for="aPlan">Plan</label>
+      <select id="aPlan"><option value="none">No plan yet (menu never switches off)</option><option value="monthly">Paid, monthly</option><option value="yearly">Paid, yearly</option></select></div>
+    <p id="cafeErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelCafe" class="btn ghost" type="button">Cancel</button>
+      <button id="saveCafe" class="btn primary" type="submit">Create cafe</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPaid">
+  <form id="fPaid" novalidate>
+    <h2 id="paidTitle">Mark paid</h2>
+    <p id="paidNow" class="muted"></p>
+    <p class="grp">Tier</p>
+    <div class="radios" id="paidTier"></div>
+    <p class="grp">Billing</p>
+    <div class="radios" id="paidPlans"></div>
+    <div><label for="pDate">Paid until</label><input id="pDate" type="date">
+      <p class="muted" style="margin-top:4px">Worked out from the current due date. Change it if needed. After this date there are 3 extra days, then the menu switches off.</p></div>
+    <p id="paidErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="removePlan" class="btn ghost" type="button" style="margin-right:auto">Remove plan</button>
+      <button id="cancelPaid" class="btn ghost" type="button">Cancel</button>
+      <button id="savePaid" class="btn primary" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgTier">
+  <form id="fTier" novalidate>
+    <h2 id="tierTitle">Change tier</h2>
+    <div class="radios" id="tierOpts"></div>
+    <p class="muted">This only switches the features on or off. It does not change the paid-until date. To record a payment use Mark paid.</p>
+    <div class="actions">
+      <button id="cancelTier" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save tier</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgOrder">
+  <form id="fOrder" novalidate>
+    <h2 id="orTitle">Category order</h2>
+    <p class="muted">Type the number you want for a category (1 is the first on the menu). The others move down by themselves. Tap Save when the order looks right.</p>
+    <div id="orRows"></div>
+    <p id="orErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelOrder" class="btn ghost" type="button">Close</button>
+      <button class="btn primary" type="submit">Save order</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPics">
+  <form id="fPics" novalidate>
+    <h2 id="pcTitle">Category photos</h2>
+    <div><label for="pcText">One category per line: name, then photo links</label>
+      <textarea id="pcText" rows="9" autocapitalize="none" spellcheck="false" placeholder="Coffee | https://yourname.github.io/menu/img/coffee-1.jpg | https://yourname.github.io/menu/img/coffee-2.jpg&#10;Burgers | https://.../burgers-1.jpg"></textarea>
+      <p class="muted" style="margin-top:4px">Put the photos in your GitHub folder first, then paste their links. Use | between the category name and the links (up to 3 links per category). The category name must match the menu. This replaces the photos of the categories you list. Other categories are left alone.</p></div>
+    <div id="pcInfo" class="muted" role="status"></div>
+    <p id="pcErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelPics" class="btn ghost" type="button">Close</button>
+      <button class="btn primary" type="submit">Save photos</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgExtras">
+  <form id="fExtras" novalidate>
+    <h2 id="exTitle">Extras</h2>
+    <p class="muted">Included free with every plan: the themed QR cards and these extras. They run on the customer's phone and use no database reads. Only you can switch them on. Cafe owners cannot.</p>
+    <div><label for="exSession">Menu closes after</label>
+      <select id="exSession"><option value="60">1 hour</option><option value="120">2 hours (default)</option><option value="180">3 hours</option><option value="240">4 hours</option><option value="0">Never</option></select>
+      <p class="muted" style="margin-top:4px">After this time on one page, customers see "Please scan the QR code again". Cafe owners cannot change it.</p></div>
+    <div class="opt"><input id="exChat" type="checkbox"><label for="exChat">Menu chatbot ("Ask our menu")</label></div>
+    <div class="opt"><input id="exCatch" type="checkbox"><label for="exCatch">Game: catch the beans</label></div>
+    <div class="opt"><input id="exMemory" type="checkbox"><label for="exMemory">Game: memory match</label></div>
+    <div class="opt"><input id="exSpin" type="checkbox"><label for="exSpin">Game: spin and win</label></div>
+    <div><label for="exReward">Reward for winning the catch or memory game (optional)</label><input id="exReward" maxlength="40" placeholder="Free cookie">
+      <p class="muted" style="margin-top:4px">Shown to the player as a screen with a code, for your staff to see. One reward a day per phone. Leave empty to play just for fun.</p></div>
+    <div><label for="exPrizes">Spin and win prizes (one per line, 2 to 8)</label><textarea id="exPrizes" rows="5" autocapitalize="none" placeholder="Free chai&#10;10% off&#10;Try again&#10;Free cookie"></textarea>
+      <p class="muted" style="margin-top:4px">Lines like "Try again" or "Better luck next time" count as no prize. One spin a day per phone.</p></div>
+    <p id="exErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelEx" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save extras</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgReview">
+  <form id="fReview" novalidate>
+    <h2 id="revTitle">Google review link</h2>
+    <div><label for="revUrl">Link</label><input id="revUrl" type="url" inputmode="url" maxlength="300" placeholder="https://g.page/r/.../review" autocapitalize="none">
+      <p class="muted" style="margin-top:4px">Customers see a "Review us on Google" button on the menu. Only you can set this. Leave it empty to hide the button.</p></div>
+    <p id="revErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelRev" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save link</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgOwners">
+  <form id="fOwners" novalidate>
+    <h2 id="ownTitle">Owners</h2>
+    <div><label for="oEmails">Owner emails (one per line)</label><textarea id="oEmails" autocapitalize="none"></textarea>
+      <p class="muted" style="margin-top:4px">Remove an email to stop that person editing this menu. The menu stays live.</p></div>
+    <p id="ownErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelOwn" class="btn ghost" type="button">Cancel</button>
+      <button class="btn primary" type="submit">Save owners</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgPaste">
+  <form id="fPaste" novalidate>
+    <h2 id="pasteTitle">Paste menu</h2>
+    <div><label for="pmText">One dish per line</label>
+      <textarea id="pmText" rows="10" autocapitalize="none" spellcheck="false" placeholder="Chicken Mandi, Mandi, Half 349/Full 649, Slow cooked rice&#10;Irani Chai, Drinks, 30"></textarea>
+      <p class="muted" style="margin-top:4px">Format: <b>Dish name, Category, Price, Description, Label</b>. Description and Label are optional (Label: Bestseller, Spicy, Sharing or New). Several sizes: <b>Half 349/Full 649</b>. Pasting from Excel or using | between columns also works. New categories are created automatically. Dishes already on the menu are skipped.</p></div>
+    <div id="pmInfo" class="muted" role="status"></div>
+    <p id="pmErr" class="err" role="alert" hidden></p>
+    <div class="actions">
+      <button id="cancelPaste" class="btn ghost" type="button">Close</button>
+      <button id="checkPaste" class="btn" type="button">Check</button>
+      <button id="doPaste" class="btn primary" type="submit" disabled>Import</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { start } from "./firebase-config.js";
+import { SAMPLE } from "./sample-menu.js";
+import { TIERS, PERIODS, priceOf, tierOf, subStatus, nextDue, addMonths, endOfDay, fmtDate, rupees, menuItems } from "./shared.js";
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function slug(t) { return String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40); }
+function parseEmails(text) {
+  var out = [];
+  String(text).split(/[\s,;]+/).forEach(function (e) {
+    e = e.trim().toLowerCase();
+    if (e && out.indexOf(e) < 0) out.push(e);
+  });
+  return out;
+}
+function badEmail(list) {
+  return list.filter(function (e) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); })[0];
+}
+
+var F = null, user = null, cafes = [], owners = {}, ownersOk = true;
+var ready = { o: false, c: false };
+var unsubs = [], ownerFor = null;
+
+function toast(msg, bad) {
+  var t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(function () { t.className = ""; }, 3400);
+}
+function friendly(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("permission-denied") >= 0) return "This login is not allowed to do that.";
+  if (c.indexOf("unavailable") >= 0 || c.indexOf("network") >= 0) return "No internet. Check your connection and try again.";
+  return (e && e.message) || "Something went wrong. Try again.";
+}
+async function run(p, ok) {
+  try {
+    await Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej({ code: "unavailable" }); }, 15000); })]);
+    if (ok) toast(ok);
+    return true;
+  } catch (e) { toast(friendly(e), true); return false; }
+}
+function formErr(id, msg) { var e = $(id); e.textContent = msg; e.hidden = false; }
+function authMsg(e) {
+  var c = (e && e.code) || "";
+  if (c.indexOf("invalid-credential") >= 0 || c.indexOf("wrong-password") >= 0 || c.indexOf("user-not-found") >= 0 || c.indexOf("invalid-email") >= 0) return "Wrong email or password.";
+  if (c.indexOf("user-disabled") >= 0) return "This account is switched off.";
+  if (c.indexOf("too-many-requests") >= 0) return "Too many tries. Wait a few minutes and try again.";
+  return "Could not log in. Try again.";
+}
+
+setTimeout(function () { var b = document.getElementById("boot"); if (b && !b.hidden) b.textContent = "Still loading. Your internet may be blocking Google's servers. Try mobile data or another network, then refresh."; }, 15000);
+(async function init() {
+  try { F = await start({ auth: true }); }
+  catch (e) { $("boot").textContent = "Could not load. Check your internet and refresh the page."; return; }
+  F.authMod.onAuthStateChanged(F.auth, onUser);
+})();
+
+function onUser(u) {
+  user = u;
+  $("boot").hidden = true;
+  $("login").hidden = !!u;
+  $("app").hidden = !u;
+  unsubs.forEach(function (f) { f(); });
+  unsubs = [];
+  ready.o = ready.c = false; ownersOk = true; cafes = []; owners = {};
+  $("main").hidden = true; $("notAgency").hidden = true;
+  if (u) { $("who").textContent = u.email; subscribe(); }
+}
+$("fLogin").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var err = $("loginErr"); err.hidden = true;
+  var btn = $("loginBtn"); btn.disabled = true;
+  try { await F.authMod.signInWithEmailAndPassword(F.auth, $("lEmail").value.trim(), $("lPass").value); }
+  catch (x) { err.textContent = authMsg(x); err.hidden = false; }
+  btn.disabled = false;
+});
+$("signOut").addEventListener("click", function () { F.authMod.signOut(F.auth); });
+
+function subscribe() {
+  var fs = F.fs, db = F.db;
+  unsubs.push(fs.onSnapshot(fs.collection(db, "owners"), function (s) {
+    owners = {};
+    s.docs.forEach(function (d) { owners[d.id] = d.data().emails || []; });
+    ownersOk = true; ready.o = true; draw();
+  }, function () { ownersOk = false; ready.o = true; draw(); }));
+  unsubs.push(fs.onSnapshot(fs.collection(db, "restaurants"), function (s) {
+    cafes = s.docs.map(function (d) { return { id: d.id, name: d.data().name || d.id, sub: d.data().sub || null, tier: tierOf(d.data()), review: ((d.data().links || {}).review) || "", chatbot: !!d.data().chatbot, games: d.data().games || null, sessionMins: d.data().sessionMins == null ? 120 : Number(d.data().sessionMins), cats: (d.data().categories || []).map(function (k) { return { id: k.id, name: k.name }; }) }; })
+      .sort(function (a, b) { return a.name.localeCompare(b.name); });
+    ready.c = true; draw();
+  }, function (e) { toast(friendly(e), true); }));
+}
+
+function menuUrl(id) { return new URL("index.html?r=" + id, location.href).href; }
+
+function days(n) { return n + (n === 1 ? " day" : " days"); }
+function subLine(sub, tier) {
+  var st = subStatus(sub);
+  var plan = sub && PERIODS[sub.plan] ? TIERS[tier || "standard"].label + " " + PERIODS[sub.plan].label.toLowerCase() + ", " : "";
+  if (st.state === "active") return '<span class="pill active">Active</span>' + esc(plan) + "paid until " + fmtDate(st.due) + " (" + days(st.daysLeft) + " left)";
+  if (st.state === "grace") return '<span class="pill grace">Due</span>was due ' + fmtDate(st.due) + ". Switches off after " + fmtDate(st.lockAt) + " (" + days(st.daysLeft) + " left)";
+  if (st.state === "locked") return '<span class="pill locked">Switched off</span>was due ' + fmtDate(st.due) + ". Mark paid to switch it back on";
+  return '<span class="pill none">No plan</span>menu never switches off';
+}
+
+function draw() {
+  if (!user || !ready.o || !ready.c) return;
+  $("notAgency").hidden = ownersOk;
+  $("main").hidden = !ownersOk;
+  if (!ownersOk) return;
+  $("cafes").innerHTML = cafes.length ? cafes.map(function (c) {
+    var list = owners[c.id] || [];
+    return '<section class="card cafe">' +
+      "<h3>" + esc(c.name) + '<span class="pill tier ' + (c.tier === "premium" ? "prem" : "std") + '">' + TIERS[c.tier].label + "</span></h3>" +
+      '<p class="muted">Link name: <code>' + esc(c.id) + "</code></p>" +
+      '<p class="owners">' + (list.length ? "<b>Owners:</b> " + list.map(esc).join(", ") : '<span class="err">No owners yet. Nobody can edit this menu.</span>') + "</p>" +
+      '<p class="subline">' + subLine(c.sub, c.tier) + "</p>" +
+      '<div class="btns">' +
+        '<button class="btn small primary" type="button" data-act="paid" data-id="' + esc(c.id) + '">Mark paid</button>' +
+        '<button class="btn small" type="button" data-act="tier" data-id="' + esc(c.id) + '">Change tier</button>' +
+        '<a class="btn small" href="index.html?r=' + encodeURIComponent(c.id) + '&fresh=1" target="_blank" rel="noopener">View menu</a>' +
+        '<a class="btn small" href="admin.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Edit menu</a>' +
+        (c.tier === "premium" ? '<a class="btn small" href="pos.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">Orders</a>' : "") +
+        '<a class="btn small" href="tables.html?r=' + encodeURIComponent(c.id) + '" target="_blank" rel="noopener">QR codes</a>' +
+        '<button class="btn small" type="button" data-act="owners" data-id="' + esc(c.id) + '">Owners</button>' +
+        '<button class="btn small" type="button" data-act="paste" data-id="' + esc(c.id) + '">Paste menu</button>' +
+        '<button class="btn small" type="button" data-act="order" data-id="' + esc(c.id) + '">Category order</button>' +
+        '<button class="btn small" type="button" data-act="pics" data-id="' + esc(c.id) + '">Category photos</button>' +
+        '<button class="btn small" type="button" data-act="extras" data-id="' + esc(c.id) + '">Extras' + ((c.chatbot || (c.games && (c.games.catch || c.games.memory || c.games.spin))) ? " (on)" : "") + "</button>" +
+        '<button class="btn small" type="button" data-act="review" data-id="' + esc(c.id) + '">' + (c.review ? "Review link" : "Add review link") + "</button>" +
+        '<button class="btn small" type="button" data-act="copy" data-id="' + esc(c.id) + '">Copy menu link</button>' +
+      "</div></section>";
+  }).join("") : '<p class="muted">No cafes yet. Tap Add cafe to create the first one.</p>';
+}
+
+$("cafes").addEventListener("click", async function (e) {
+  var b = e.target.closest("[data-act]");
+  if (!b) return;
+  var id = b.dataset.id;
+  if (b.dataset.act === "copy") {
+    var url = menuUrl(id);
+    try { await navigator.clipboard.writeText(url); toast("Menu link copied"); }
+    catch (x) { toast(url); }
+  } else if (b.dataset.act === "paid") {
+    openPaid(id);
+  } else if (b.dataset.act === "tier") {
+    openTier(id);
+  } else if (b.dataset.act === "paste") {
+    openPaste(id);
+  } else if (b.dataset.act === "order") {
+    orderFor = id;
+    var oc = cafes.filter(function (x) { return x.id === id; })[0] || { cats: [] };
+    orderList = oc.cats.slice();
+    $("orTitle").textContent = "Category order for " + (oc.name || id);
+    $("orErr").hidden = true; drawOrder();
+    $("dlgOrder").showModal();
+  } else if (b.dataset.act === "pics") {
+    picsFor = id;
+    var pc = cafes.filter(function (x) { return x.id === id; })[0];
+    $("pcTitle").textContent = "Category photos for " + (pc ? pc.name : id);
+    $("pcText").value = ""; $("pcInfo").textContent = ""; $("pcErr").hidden = true;
+    $("dlgPics").showModal();
+  } else if (b.dataset.act === "extras") {
+    extrasFor = id;
+    var ec = cafes.filter(function (x) { return x.id === id; })[0] || {}, eg = ec.games || {};
+    $("exTitle").textContent = "Extras for " + (ec.name || id);
+    $("exSession").value = String(ec.sessionMins == null ? 120 : ec.sessionMins);
+    $("exChat").checked = !!ec.chatbot; $("exCatch").checked = !!eg.catch; $("exMemory").checked = !!eg.memory; $("exSpin").checked = !!eg.spin;
+    $("exReward").value = eg.reward || ""; $("exPrizes").value = (eg.prizes || []).join("\n");
+    $("exErr").hidden = true;
+    $("dlgExtras").showModal();
+  } else if (b.dataset.act === "review") {
+    reviewFor = id;
+    var rc = cafes.filter(function (x) { return x.id === id; })[0];
+    $("revTitle").textContent = "Google review link for " + (rc ? rc.name : id);
+    $("revUrl").value = rc ? rc.review : "";
+    $("revErr").hidden = true;
+    $("dlgReview").showModal();
+  } else if (b.dataset.act === "owners") {
+    ownerFor = id;
+    var c = cafes.filter(function (x) { return x.id === id; })[0];
+    $("ownTitle").textContent = "Owners of " + (c ? c.name : id);
+    $("oEmails").value = (owners[id] || []).join("\n");
+    $("ownErr").hidden = true;
+    $("dlgOwners").showModal();
+  }
+});
+
+// ---------- mark paid
+var paidFor = null, dateTouched = false;
+function pad(n) { return (n < 10 ? "0" : "") + n; }
+function toInput(ms) { var d = new Date(ms); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function fromInput(v) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+  return m ? endOfDay(new Date(+m[1], +m[2] - 1, +m[3]).getTime()) : null;
+}
+function chosenPlan() { var r = document.querySelector('#paidPlans input:checked'); return r ? r.value : "monthly"; }
+function chosenTier() { var r = document.querySelector('#paidTier input:checked'); return r ? r.value : "standard"; }
+function drawPeriods(tier, cur) {
+  $("paidPlans").innerHTML = Object.keys(PERIODS).map(function (k) {
+    return '<label><input type="radio" name="plan" value="' + k + '"' + (k === cur ? " checked" : "") + "> " + PERIODS[k].label + " " + rupees(priceOf(tier, k)) + " per " + PERIODS[k].per + "</label>";
+  }).join("");
+}
+function suggestDate() {
+  var c = cafes.filter(function (x) { return x.id === paidFor; })[0];
+  $("pDate").value = toInput(nextDue(c ? c.sub : null, chosenPlan()));
+}
+function openPaid(id) {
+  paidFor = id; dateTouched = false;
+  var c = cafes.filter(function (x) { return x.id === id; })[0] || { sub: null, tier: "standard" };
+  var cur = c.sub && PERIODS[c.sub.plan] ? c.sub.plan : "monthly";
+  $("paidTitle").textContent = "Mark paid: " + (c.name || id);
+  $("paidNow").innerHTML = subLine(c.sub, c.tier);
+  $("paidTier").innerHTML = Object.keys(TIERS).map(function (k) {
+    return '<label><input type="radio" name="tier" value="' + k + '"' + (k === c.tier ? " checked" : "") + "> " + TIERS[k].label + " " + rupees(TIERS[k].monthly) + " a month or " + rupees(TIERS[k].yearly) + " a year</label>";
+  }).join("");
+  drawPeriods(c.tier, cur);
+  suggestDate();
+  $("removePlan").hidden = !c.sub;
+  $("paidErr").hidden = true;
+  $("dlgPaid").showModal();
+}
+$("paidTier").addEventListener("change", function () { drawPeriods(chosenTier(), chosenPlan()); if (!dateTouched) suggestDate(); });
+$("paidPlans").addEventListener("change", function () { if (!dateTouched) suggestDate(); });
+$("pDate").addEventListener("input", function () { dateTouched = true; });
+$("cancelPaid").addEventListener("click", function () { $("dlgPaid").close(); });
+$("fPaid").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("paidErr").hidden = true;
+  var until = fromInput($("pDate").value);
+  if (!until) return formErr("paidErr", "Pick the paid-until date.");
+  var plan = chosenPlan(), tier = chosenTier();
+  var sub = { plan: plan, tier: tier, paidUntil: until, paidOn: Date.now(), amount: priceOf(tier, plan) };
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: sub, tier: tier }), "Saved. " + TIERS[tier].label + " until " + fmtDate(until))) $("dlgPaid").close();
+});
+$("removePlan").addEventListener("click", async function () {
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", paidFor), { sub: null }), "Plan removed. Menu will not switch off")) $("dlgPaid").close();
+});
+
+// ---------- tier
+var tierFor = null;
+function openTier(id) {
+  tierFor = id;
+  var c = cafes.filter(function (x) { return x.id === id; })[0] || { tier: "standard" };
+  $("tierTitle").textContent = "Tier for " + (c.name || id);
+  $("tierOpts").innerHTML = Object.keys(TIERS).map(function (k) {
+    return '<label><input type="radio" name="tierPick" value="' + k + '"' + (k === c.tier ? " checked" : "") + "> " + TIERS[k].label + (k === "premium" ? " (ordering, orders panel, stamps, app-style menu)" : " (menu only)") + "</label>";
+  }).join("");
+  $("dlgTier").showModal();
+}
+$("cancelTier").addEventListener("click", function () { $("dlgTier").close(); });
+$("fTier").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var r = document.querySelector('#tierOpts input:checked');
+  if (!r) return;
+  if (await run(F.fs.updateDoc(F.fs.doc(F.db, "restaurants", tierFor), { tier: r.value }), "Tier set to " + TIERS[r.value].label)) $("dlgTier").close();
+});
+
+// ---------- owners
+var reviewFor = null, extrasFor = null, picsFor = null, orderFor = null, orderList = [];
+function drawOrder() {
+  $("orRows").innerHTML = orderList.length ? orderList.map(function (k, i) {
+    return '<div class="opt" style="margin-block:6px"><input type="number" inputmode="numeric" min="1" max="' + orderList.length + '" value="' + (i + 1) + '" data-oi="' + i + '" aria-label="Position of ' + esc(k.name) + '" style="width:72px;flex:none;text-align:center;font-weight:700"><label style="flex:1">' + esc(k.name) + '</label></div>';
+  }).join("") : '<p class="muted">This cafe has no categories yet.</p>';
+}
+$("orRows").addEventListener("change", function (e) {
+  var inp = e.target.closest("[data-oi]"); if (!inp) return;
+  var from = Number(inp.dataset.oi), to = Math.round(Number(inp.value));
+  if (!(to >= 1)) to = from + 1;
+  to = Math.min(to, orderList.length) - 1;
+  var item = orderList.splice(from, 1)[0]; orderList.splice(to, 0, item);
+  drawOrder();
+});
+$("cancelOrder").addEventListener("click", function () { $("dlgOrder").close(); });
+$("fOrder").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var fs = F.fs, ref = fs.doc(F.db, "restaurants", orderFor);
+  try {
+    // Re-read the cafe so a change the owner made meanwhile is kept; only the order changes.
+    var rd = (await fs.getDoc(ref)).data() || {}, cur = rd.categories || [], rank = {};
+    orderList.forEach(function (k, i) { rank[k.id] = i; });
+    var out = cur.map(function (c, i) { return { c: c, r: rank[c.id] == null ? 1000 + i : rank[c.id] }; }).sort(function (a, b) { return a.r - b.r; }).map(function (x) { return x.c; });
+    await fs.updateDoc(ref, { categories: out });
+    toast("Category order saved"); $("dlgOrder").close();
+  } catch (x) { formErr("orErr", friendly(x)); }
+});
+$("cancelPics").addEventListener("click", function () { $("dlgPics").close(); });
+$("fPics").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("pcErr").hidden = true; $("pcInfo").textContent = "";
+  var text = $("pcText").value;
+  if (!text.trim()) return formErr("pcErr", "Paste the categories and photo links first.");
+  var fs = F.fs, ref = fs.doc(F.db, "restaurants", picsFor);
+  try {
+    var snap = await fs.getDoc(ref), rd = snap.data() || {}, cats = (rd.categories || []).map(function (c) { return Object.assign({}, c); });
+    var byName = {}; cats.forEach(function (c) { byName[String(c.name).trim().toLowerCase()] = c; });
+    var done = 0, missing = [], noLinks = [];
+    text.split(/\r?\n/).forEach(function (raw) {
+      var line = raw.trim(); if (!line) return;
+      var name, rest;
+      if (line.indexOf("|") >= 0 || line.indexOf("\t") >= 0) { var parts = line.split(/[|\t]/); name = parts.shift(); rest = parts.join(" "); }
+      else { var i = line.indexOf(","); name = i < 0 ? line : line.slice(0, i); rest = i < 0 ? "" : line.slice(i + 1); }
+      name = name.trim();
+      var links = rest.split(/[\s,]+/).filter(function (u) { return /^https:\/\/\S+$/i.test(u); }).slice(0, 3);
+      var c = byName[name.toLowerCase()];
+      if (!c) return missing.push(name);
+      if (!links.length) return noLinks.push(name);
+      c.photos = links; done++;
+    });
+    if (!done) { $("pcInfo").textContent = (missing.length ? "Not found in the menu: " + missing.join(", ") + ". " : "") + (noLinks.length ? "No https links for: " + noLinks.join(", ") + "." : ""); return formErr("pcErr", "Nothing to save."); }
+    var size = JSON.stringify(cats).length + JSON.stringify(rd.slides || []).length + String(rd.logo || "").length;
+    if (size > 850000) return formErr("pcErr", "Too many photos stored directly in this cafe. Use links instead of uploads.");
+    await fs.updateDoc(ref, { categories: cats });
+    $("pcInfo").textContent = "Saved photos for " + done + " categories." + (missing.length ? " Not found: " + missing.join(", ") + "." : "") + (noLinks.length ? " No links for: " + noLinks.join(", ") + "." : "");
+    toast("Category photos saved");
+  } catch (x) { formErr("pcErr", friendly(x)); }
+});
+$("cancelEx").addEventListener("click", function () { $("dlgExtras").close(); });
+$("fExtras").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var prizes = $("exPrizes").value.split(/\r?\n/).map(function (x) { return x.trim().slice(0, 30); }).filter(Boolean);
+  var spin = $("exSpin").checked;
+  if (spin && (prizes.length < 2 || prizes.length > 8)) return formErr("exErr", "Spin and win needs 2 to 8 prizes, one per line.");
+  var games = { catch: $("exCatch").checked, memory: $("exMemory").checked, spin: spin, reward: $("exReward").value.trim().slice(0, 40), prizes: prizes.slice(0, 8) };
+  try {
+    await F.fs.updateDoc(F.fs.doc(F.db, "restaurants", extrasFor), { chatbot: $("exChat").checked, games: games, sessionMins: Number($("exSession").value) || 0 });
+    toast("Extras saved"); $("dlgExtras").close();
+  } catch (x) { formErr("exErr", friendly(x)); }
+});
+$("cancelRev").addEventListener("click", function () { $("dlgReview").close(); });
+$("fReview").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  var u = $("revUrl").value.trim();
+  if (u && !/^https:\/\//i.test(u)) return formErr("revErr", "The link must start with https://");
+  var fs = F.fs, ref = fs.doc(F.db, "restaurants", reviewFor);
+  try {
+    var snap = await fs.getDoc(ref), lk = Object.assign({ instagram: "", whatsapp: "" }, (snap.data() || {}).links || {});
+    lk.review = u;
+    await fs.updateDoc(ref, { links: lk });
+    toast("Review link saved"); $("dlgReview").close();
+  } catch (x) { formErr("revErr", friendly(x)); }
+});
+$("cancelOwn").addEventListener("click", function () { $("dlgOwners").close(); });
+$("fOwners").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("ownErr").hidden = true;
+  var list = parseEmails($("oEmails").value);
+  var bad = badEmail(list);
+  if (bad) return formErr("ownErr", bad + " is not a valid email.");
+  if (await run(F.fs.setDoc(F.fs.doc(F.db, "owners", ownerFor), { emails: list }), "Owners saved")) $("dlgOwners").close();
+});
+
+// ---------- add cafe
+var idTouched = false;
+$("aName").addEventListener("input", function () { if (!idTouched) $("aId").value = slug($("aName").value); });
+$("aId").addEventListener("input", function () { idTouched = true; });
+// One-time: build the combined menu (1 read per customer view) for every cafe that does not have one yet.
+$("convAll").addEventListener("click", async function () {
+  var info = $("convInfo"), fs = F.fs, db = F.db, done = 0, had = 0, empty = 0, failed = 0;
+  var list = cafes.slice();
+  if (!list.length) return;
+  $("convAll").disabled = true; info.hidden = false;
+  for (var i = 0; i < list.length; i++) {
+    var c = list[i];
+    info.textContent = "Checking " + (i + 1) + " of " + list.length + ": " + c.name + "...";
+    try {
+      var m = await fs.getDoc(fs.doc(db, "restaurants", c.id, "menu", "all"));
+      if (m.exists() && Array.isArray(m.data().items)) { had++; continue; }
+      var s = await fs.getDocs(fs.collection(db, "restaurants", c.id, "items"));
+      if (s.empty) { empty++; continue; }
+      var all = s.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+      var items = menuItems(all);
+      if (JSON.stringify(items).length > 900000) { failed++; continue; }
+      await fs.setDoc(fs.doc(db, "restaurants", c.id, "menu", "all"), { items: items, updatedAt: fs.serverTimestamp() });
+      done++;
+    } catch (x) { failed++; }
+  }
+  info.textContent = "Done. Converted " + done + ", already converted " + had + (empty ? ", no dishes yet " + empty : "") + (failed ? ", failed " + failed + " (try again)" : "") + ".";
+  $("convAll").disabled = false;
+});
+$("addCafe").addEventListener("click", function () {
+  idTouched = false;
+  $("aName").value = ""; $("aId").value = ""; $("aOwners").value = ""; $("aStart").value = "empty"; $("aPlan").value = "none"; $("aTier").value = "standard";
+  $("cafeErr").hidden = true;
+  $("dlgCafe").showModal();
+});
+$("cancelCafe").addEventListener("click", function () { $("dlgCafe").close(); });
+$("fCafe").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  $("cafeErr").hidden = true;
+  var fs = F.fs, db = F.db;
+  var name = $("aName").value.trim();
+  var id = $("aId").value.trim().toLowerCase();
+  if (!name) return formErr("cafeErr", "Enter the cafe name.");
+  if (!/^[a-z0-9-]{2,40}$/.test(id)) return formErr("cafeErr", "The link name needs 2 to 40 lowercase letters, numbers or dashes.");
+  var list = parseEmails($("aOwners").value);
+  var bad = badEmail(list);
+  if (bad) return formErr("cafeErr", bad + " is not a valid email.");
+  $("saveCafe").disabled = true;
+  try {
+    var snap = await fs.getDoc(fs.doc(db, "restaurants", id));
+    if (snap.exists()) { formErr("cafeErr", "That link name is already used. Pick another."); return; }
+    var sample = $("aStart").value === "sample";
+    var cats = sample ? SAMPLE.categories : [{ id: "starters", name: "Starters", blurb: "" }];
+    var b = fs.writeBatch(db);
+    var planKey = $("aPlan").value, tier = $("aTier").value === "premium" ? "premium" : "standard";
+    var sub = PERIODS[planKey] ? { plan: planKey, tier: tier, paidUntil: nextDue(null, planKey), paidOn: Date.now(), amount: priceOf(tier, planKey) } : null;
+    var doc = { name: name, tagline: "", categories: cats, links: { instagram: "", whatsapp: "", review: "" }, theme: null, sub: sub, tier: tier };
+    if (tier === "premium") { doc.ordering = true; doc.tables = 10; doc.loyalty = { on: false, goal: 10, reward: "" }; doc.slides = []; }
+    b.set(fs.doc(db, "restaurants", id), doc);
+    b.set(fs.doc(db, "owners", id), { emails: list });
+    if (sample) {
+      var made = [];
+      SAMPLE.items.forEach(function (it, i) {
+        var ref = fs.doc(fs.collection(db, "restaurants", id, "items"));
+        var row = { cat: it.cat, n: it.n, d: it.d, p: it.p, t: it.t || "", img: "", sold: false, order: i };
+        b.set(ref, row);
+        made.push(Object.assign({ id: ref.id }, row));
+      });
+      b.set(fs.doc(db, "restaurants", id, "menu", "all"), { items: menuItems(made), updatedAt: fs.serverTimestamp() });
+    }
+    if (await run(b.commit(), "Cafe created")) $("dlgCafe").close();
+  } catch (x) { formErr("cafeErr", friendly(x)); }
+  finally { $("saveCafe").disabled = false; }
+});
+
+// ---------- paste a whole menu
+var pasteFor = null, plan = null;
+var TAGS = { bestseller: "Bestseller", spicy: "Spicy", sharing: "Sharing", "new": "New" };
+function openPaste(id) {
+  pasteFor = id; plan = null;
+  var c = cafes.filter(function (x) { return x.id === id; })[0];
+  $("pasteTitle").textContent = "Paste menu for " + (c ? c.name : id);
+  $("pmText").value = ""; $("pmInfo").textContent = ""; $("pmErr").hidden = true; $("doPaste").disabled = true;
+  $("dlgPaste").showModal();
+}
+$("cancelPaste").addEventListener("click", function () { $("dlgPaste").close(); });
+$("pmText").addEventListener("input", function () { plan = null; $("doPaste").disabled = true; });
+function parsePrices(txt) {
+  var out = [], parts = String(txt || "").split(/[\/;]/);
+  for (var i = 0; i < parts.length; i++) {
+    var m = parts[i].trim().match(/^(.*?)[\s:=\-]*(?:₹|rs\.?\s*)?\s*(\d+(?:\.\d+)?)$/i);
+    if (!m || !(Number(m[2]) > 0)) return null;
+    out.push({ l: m[1].replace(/[:=\-\s]+$/, "").trim().slice(0, 20), v: Number(m[2]) });
+  }
+  return out.length ? out : null;
+}
+function splitLine(line) {
+  if (line.indexOf("\t") >= 0) return line.split("\t");
+  if (line.indexOf("|") >= 0) return line.split("|");
+  var p = line.split(",");
+  if (p.length <= 3) return p;
+  var last = p[p.length - 1].trim().toLowerCase();
+  if (TAGS[last]) return p.slice(0, 3).concat([p.slice(3, -1).join(","), p[p.length - 1]]);
+  return p.slice(0, 3).concat([p.slice(3).join(",")]);
+}
+async function buildPlan(id, text) {
+  var fs = F.fs, db = F.db, errors = [], rows = [];
+  var rs = await fs.getDoc(fs.doc(db, "restaurants", id));
+  if (!rs.exists()) throw new Error("This cafe could not be found.");
+  var cats = (rs.data().categories || []).map(function (c) { return Object.assign({}, c); });
+  var is = await fs.getDocs(fs.collection(db, "restaurants", id, "items"));
+  var existing = is.docs.map(function (d) { var o = d.data(); o.id = d.id; return o; });
+  var have = {}, maxOrder = -1;
+  existing.forEach(function (o) { have[o.cat + "|" + String(o.n).trim().toLowerCase()] = 1; maxOrder = Math.max(maxOrder, Number(o.order) || 0); });
+  var catByName = {}; cats.forEach(function (c) { catByName[String(c.name).trim().toLowerCase()] = c; });
+  var newCats = [], skipped = 0;
+  text.split(/\r?\n/).forEach(function (raw, ln) {
+    var line = raw.trim(); if (!line) return;
+    var f = splitLine(line).map(function (x) { return x.trim(); });
+    if (ln === 0 && f.length >= 3 && /^(dish|name|item)/i.test(f[0]) && !parsePrices(f[2])) return;   // header row
+    if (f.length < 3) return errors.push("Line " + (ln + 1) + ": needs name, category and price.");
+    var name = f[0].slice(0, 60), catName = f[1].slice(0, 40), pr = parsePrices(f[2]);
+    if (!name) return errors.push("Line " + (ln + 1) + ": dish name is empty.");
+    if (!catName) return errors.push("Line " + (ln + 1) + ": category is empty.");
+    if (!pr) return errors.push("Line " + (ln + 1) + ": could not read the price \"" + f[2] + "\".");
+    var tag = TAGS[String(f[4] || "").toLowerCase()] || "";
+    var key = catName.toLowerCase(), cat = catByName[key];
+    if (!cat) { cat = { id: slug(catName) + "-" + Math.random().toString(36).slice(2, 6), name: catName, blurb: "" }; catByName[key] = cat; newCats.push(cat); }
+    if (have[cat.id + "|" + name.toLowerCase()]) { skipped++; return; }
+    have[cat.id + "|" + name.toLowerCase()] = 1;
+    rows.push({ cat: cat.id, n: name, d: String(f[3] || "").slice(0, 140), p: pr, t: tag, sold: false });
+  });
+  return { id: id, text: text, cats: cats.concat(newCats), newCats: newCats, rows: rows, errors: errors, skipped: skipped, existing: existing, maxOrder: maxOrder };
+}
+$("checkPaste").addEventListener("click", async function () {
+  $("pmErr").hidden = true; plan = null; $("doPaste").disabled = true;
+  var text = $("pmText").value;
+  if (!text.trim()) return formErr("pmErr", "Paste the menu first.");
+  $("pmInfo").textContent = "Checking...";
+  try {
+    var p = await buildPlan(pasteFor, text);
+    var info = p.rows.length + " dishes ready to add";
+    if (p.newCats.length) info += ", " + p.newCats.length + " new categories (" + p.newCats.map(function (c) { return c.name; }).join(", ") + ")";
+    if (p.skipped) info += ". " + p.skipped + " already on the menu and skipped";
+    info += ".";
+    if (p.errors.length) info += " " + p.errors.length + " lines could not be read: " + p.errors.slice(0, 6).join(" ") + (p.errors.length > 6 ? " ..." : "");
+    $("pmInfo").textContent = info;
+    if (p.existing.length + p.rows.length > 600) return formErr("pmErr", "A menu can have at most 600 dishes.");
+    if (!p.rows.length) return;
+    plan = p; $("doPaste").disabled = false;
+  } catch (x) { $("pmInfo").textContent = ""; formErr("pmErr", friendly(x)); }
+});
+$("fPaste").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  if (!plan || plan.text !== $("pmText").value) return formErr("pmErr", "Tap Check again first.");
+  var fs = F.fs, db = F.db, p = plan, id = p.id;
+  $("doPaste").disabled = true; $("checkPaste").disabled = true; $("pmErr").hidden = true; $("pmInfo").textContent = "Importing " + p.rows.length + " dishes...";
+  try {
+    var added = p.rows.map(function (r, i) {
+      var ref = fs.doc(fs.collection(db, "restaurants", id, "items"));
+      return { ref: ref, row: Object.assign({ img: "", order: p.maxOrder + 1 + i }, r) };
+    });
+    if (p.newCats.length) await fs.updateDoc(fs.doc(db, "restaurants", id), { categories: p.cats });
+    for (var i = 0; i < added.length; i += 400) {
+      var b = fs.writeBatch(db);
+      added.slice(i, i + 400).forEach(function (a) { b.set(a.ref, a.row); });
+      await b.commit();
+    }
+    var all = p.existing.concat(added.map(function (a) { return Object.assign({ id: a.ref.id }, a.row); }));
+    var list = menuItems(all);
+    if (JSON.stringify(list).length > 900000) throw new Error("The menu is too big to publish.");
+    await fs.setDoc(fs.doc(db, "restaurants", id, "menu", "all"), { items: list, updatedAt: fs.serverTimestamp() });
+    toast(added.length + " dishes added");
+    $("dlgPaste").close();
+  } catch (x) { $("pmInfo").textContent = ""; formErr("pmErr", friendly(x)); }
+  finally { $("checkPaste").disabled = false; plan = null; }
+});
+</script>
+</body>
+</html>
